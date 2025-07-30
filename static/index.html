@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Raspberry Pi Chatbot</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; background: #f0f0f0; }
+    #chat { max-width: 900px; margin: auto; background: white; padding: 1rem; border-radius: 10px; }
+    .msg { margin: 0.5rem 0; }
+    .user { font-weight: bold; }
+    .bot { color: #333; }
+    textarea { width: 100%; height: 60px; }
+    select, button { margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div id="chat">
+    <h2>💬 Raspberry Pi Chatbot</h2>
+    <div id="messages"></div>
+    <textarea id="input" placeholder="Type your message..."></textarea><br>
+    <select id="model">
+      <option value="gemini">Gemini (API)</option>
+      <option value="local">Local (Ollama)</option>
+    </select><br>
+    <button onclick="send()">Send</button>
+  </div>
+
+  <script>
+    const messages = document.getElementById('messages');
+
+    function addMessage(role, text) {
+      const msg = document.createElement('div');
+      msg.className = 'msg';
+      msg.innerHTML = `<span class="${role}">${role === 'user' ? 'You' : 'Bot'}:</span> ${text}`;
+      messages.appendChild(msg);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    async function send() {
+      const input = document.getElementById('input');
+      const model = document.getElementById('model').value;
+      const prompt = input.value.trim();
+      if (!prompt) return;
+
+      addMessage('user', prompt);
+      input.value = '';
+
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'your_local_api_key' // optional
+        },
+        body: JSON.stringify({ prompt, model })
+      });
+
+      if (!res.ok) {
+        addMessage('bot', 'Error: ' + res.statusText);
+        return;
+      }
+
+      const data = await res.json();
+      addMessage('bot', data.response);
+    }
+  </script>
+</body>
+</html>
