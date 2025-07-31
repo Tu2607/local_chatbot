@@ -17,7 +17,9 @@ func main() {
 	// Handle the chat api
 	mux.HandleFunc("/chat", handler.ChatHandler)
 
-	port := "8080"
+	port := "55572"
 	fmt.Println("Starting server on port", port)
-	log.Fatal(http.ListenAndServe("0.0.0.0:"+port, nil))
+	if err := http.ListenAndServe(":"+port, mux); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }

@@ -51,9 +51,8 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': 'your_local_api_key' // optional
         },
-        body: JSON.stringify({ prompt, model })
+        body: JSON.stringify({ 'input': prompt, 'model': model })
       });
 
       if (!res.ok) {

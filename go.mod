@@ -1,4 +1,4 @@
-module github.com/Tu2607/local_chatbot
+module local_chatbot
 
 go 1.24.2
 

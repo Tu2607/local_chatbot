@@ -1,15 +1,14 @@
-package models
+package ai_models
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 
 	"google.golang.org/genai"
 )
 
-func geminiChat(prompt string, selected_model string) *genai.GenerateContentResponse {
+func GeminiChat(prompt string, selected_model string) string {
 	ctx := context.Background()
 
 	// Initialize the GenAI client with the API key from environment variable
@@ -42,11 +41,14 @@ func geminiChat(prompt string, selected_model string) *genai.GenerateContentResp
 		log.Fatalf("Failed to generate content: %v", err)
 	}
 
-	fmt.Println("Generated content:", result)
-	return result
-}
+	// For now, we only support text responses so we return the first candidate
+	var resultText string
 
-func main() {
-	test := geminiChat("Hello, how are you?", "gemini-2.5-flash")
-	fmt.Println("Test result:", test)
+	if len(result.Candidates) > 0 {
+		resultText = result.Candidates[0].Content.Parts[0].Text
+	} else {
+		log.Println("No candidates returned from the model")
+	}
+
+	return resultText
 }

@@ -2,8 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"local_chatbot/server/ai_models"
 	"net/http"
-	"local_chatbot/models"
 )
 
 type ChatRequest struct {
@@ -29,12 +29,15 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: Implement chat logic here
+	var reply string
+
 	switch req.Model {
 	case "gemini-2.5-flash":
-		models.geminiChat(req.Input, "gemini-2.5-flash")
+		// Use the Gemini 2.5 Flash model and call the function from the ai_models package
+		reply = ai_models.GeminiChat(req.Input, "gemini-2.5-flash")
 	case "gemini-2.5-pro":
-		models.geminiChat(req.Input, "gemini-2.5-pro")
-	case "local:
+		// Use the Gemini 2.5 Pro model and call the function from the ai_models package
+		reply = ai_models.GeminiChat(req.Input, "gemini-2.5-pro")
 	}
 
 	resp := ChatResponse{Response: reply}
