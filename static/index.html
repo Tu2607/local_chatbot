@@ -19,7 +19,8 @@
     <div id="messages"></div>
     <textarea id="input" placeholder="Type your message..."></textarea><br>
     <select id="model">
-      <option value="gemini">Gemini (API)</option>
+      <option value="gemini-2.5-flash">Gemini 2.5 Flash (API)</option>
+        <option value="gemini-2.5-pro">Gemini 2.5 Pro (API)</option>
       <option value="local">Local (Ollama)</option>
     </select><br>
     <button onclick="send()">Send</button>
@@ -28,6 +29,7 @@
   <script>
     const messages = document.getElementById('messages');
 
+    // Add a message to the messages area
     function addMessage(role, text) {
       const msg = document.createElement('div');
       msg.className = 'msg';
