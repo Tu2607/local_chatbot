@@ -37,11 +37,15 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 
 	switch req.Model {
 	case "gemini-2.5-flash":
-		// Use the Gemini 2.5 Flash model and call the function from the ai_models package
 		reply = ai_models.GeminiChat(req.Input, "gemini-2.5-flash")
 	case "gemini-2.5-pro":
-		// Use the Gemini 2.5 Pro model and call the function from the ai_models package
 		reply = ai_models.GeminiChat(req.Input, "gemini-2.5-pro")
+	case "gemini-2.5-flash-lite": // The cheapest model
+		reply = ai_models.GeminiChat(req.Input, "gemini-2.5-flash-lite")
+	case "gemini-2.0-flash-preview-image-generation":
+		reply = ai_models.GeminiImageGeneration(req.Input, "gemini-2.0-flash-preview-image-generation")
+	case "local":
+		reply = ai_models.OllamaChat(req.Input, "")
 	}
 
 	// Parse the response in a way that is readable on the Web UI and at the same time
