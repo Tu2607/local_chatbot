@@ -1,6 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.3/dist/purify.min.js"></script>
   <meta charset="UTF-8">
   <title>Raspberry Pi Chatbot</title>
   <style>
@@ -8,7 +21,7 @@
     #chat { max-width: 900px; margin: auto; background: white; padding: 1rem; border-radius: 10px; }
     .msg { margin: 0.5rem 0; }
     .user { font-weight: bold; }
-    .bot { color: #333; }
+    .bot { color: #ff0000; font-weight: bold;}
     textarea { width: 100%; height: 60px; }
     select, button { margin-top: 0.5rem; }
   </style>
@@ -23,7 +36,7 @@
         <option value="gemini-2.5-pro">Gemini 2.5 Pro (API)</option>
       <option value="local">Local (Ollama)</option>
     </select><br>
-    <button onclick="send()">Send</button>
+    <button onclick="send()" on>Send</button>
   </div>
 
   <script>
@@ -33,8 +46,18 @@
     function addMessage(role, text) {
       const msg = document.createElement('div');
       msg.className = 'msg';
-      msg.innerHTML = `<span class="${role}">${role === 'user' ? 'You' : 'Bot'}:</span> ${text}`;
+
+      // msg.innerHTML = `<span class="${role}">${role === 'user' ? 'You' : 'Bot'}:</span> ${text}`;
+      msg.innerHTML = `
+        <span class="${role}">${role === 'user' ? 'You' : 'Bot'}:</span>
+        <div class="message-body">${DOMPurify.sanitize(text)}</div>
+      `;
       messages.appendChild(msg);
+
+      if (window.MathJax) {
+        console.log("Rendering this message with MathJax:", text);
+        MathJax.typesetPromise([msg]).catch(err => console.error('MathJax error:', err));
+      }
       messages.scrollTop = messages.scrollHeight;
     }
 
@@ -47,7 +70,7 @@
       addMessage('user', prompt);
       input.value = '';
 
-      const res = await fetch('/chat', {
+      const res = await fetch('/chat?format=html', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

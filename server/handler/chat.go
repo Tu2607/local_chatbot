@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"local_chatbot/server/ai_models"
+	"local_chatbot/server/helper"
 	"net/http"
 )
 
@@ -28,6 +29,9 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if the response should be in HTML format
+	isHTML := r.URL.Query().Get("format") == "html"
+
 	// TODO: Implement chat logic here
 	var reply string
 
@@ -38,6 +42,17 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 	case "gemini-2.5-pro":
 		// Use the Gemini 2.5 Pro model and call the function from the ai_models package
 		reply = ai_models.GeminiChat(req.Input, "gemini-2.5-pro")
+	}
+
+	// Parse the response in a way that is readable on the Web UI and at the same time
+	// acceptable for curl
+	if isHTML {
+		htmlOutput, err := helper.MarkdownToHTML(reply)
+		if err != nil {
+			http.Error(w, "Failed to convert Markdown to HTML", http.StatusInternalServerError)
+			return
+		}
+		reply = htmlOutput
 	}
 
 	resp := ChatResponse{Response: reply}

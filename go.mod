@@ -2,7 +2,10 @@ module local_chatbot
 
 go 1.24.2
 
-require google.golang.org/genai v1.18.0
+require (
+	github.com/yuin/goldmark v1.7.13
+	google.golang.org/genai v1.18.0
+)
 
 require (
 	cloud.google.com/go v0.116.0 // indirect
