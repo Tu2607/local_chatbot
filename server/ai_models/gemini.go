@@ -9,7 +9,7 @@ import (
 	"google.golang.org/genai"
 )
 
-func GeminiChat(prompt string, selected_model string) string {
+func GeminiChat(history []*genai.Content, prompt string, selected_model string) (string, []*genai.Content) {
 	ctx := context.Background()
 
 	// Initialize the GenAI client with the API key from environment variable
@@ -31,10 +31,13 @@ func GeminiChat(prompt string, selected_model string) string {
 		genai.NewContentFromText(prompt, genai.RoleUser),
 	}
 
+	// Append the history to the contents
+	updatedHistory := append(history, contents...)
+
 	result, err := client.Models.GenerateContent(
 		ctx,
 		selected_model,
-		contents,
+		updatedHistory,
 		nil, // Could add additional parameters here if needed for more thinking tokens
 	)
 
@@ -48,10 +51,13 @@ func GeminiChat(prompt string, selected_model string) string {
 	if len(result.Candidates) > 0 {
 		resultText = result.Candidates[0].Content.Parts[0].Text
 	} else {
-		log.Println("No candidates returned from the model")
+		log.Fatalf("No candidates returned from the model")
 	}
 
-	return resultText
+	// Append the response to the history
+	updatedHistory = append(updatedHistory, genai.NewContentFromText(resultText, genai.RoleModel))
+
+	return resultText, updatedHistory
 }
 
 // The method definition is a bit future proofing as gemini-2.0-flash-preview-image-generation

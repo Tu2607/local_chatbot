@@ -2,6 +2,7 @@ package helper
 
 import (
 	"bytes"
+	"html"
 
 	"github.com/yuin/goldmark"
 )
@@ -14,4 +15,15 @@ func MarkdownToHTML(markdown string) (string, error) {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+func HtmlOrCurlResponse(isHTML bool, response string) string {
+	if isHTML {
+		htmlOutput, err := MarkdownToHTML(response)
+		if err != nil {
+			return "Error converting Markdown to HTML: " + html.EscapeString(err.Error())
+		}
+		return htmlOutput
+	}
+	return response
 }

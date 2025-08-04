@@ -3,6 +3,7 @@ module local_chatbot
 go 1.24.2
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/yuin/goldmark v1.7.13
 	google.golang.org/genai v1.18.0
 )
