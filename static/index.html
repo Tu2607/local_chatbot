@@ -32,6 +32,7 @@
     <div id="messages"></div>
     <textarea id="input" placeholder="Type your message..."></textarea><br>
     <select id="model">
+      <option value="gemma-3-27b-it">Gemma 3 27B IT (API)</option>
       <option value="gemini-2.5-flash">Gemini 2.5 Flash (API)</option>
         <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite (API)</option>
         <option value="gemini-2.5-pro">Gemini 2.5 Pro (API)</option>
@@ -49,7 +50,6 @@
       const msg = document.createElement('div');
       msg.className = 'msg';
 
-      // msg.innerHTML = `<span class="${role}">${role === 'user' ? 'You' : 'Bot'}:</span> ${text}`;
       msg.innerHTML = `
         <span class="${role}">${role === 'user' ? 'You' : 'Bot'}:</span>
         <div class="message-body">${DOMPurify.sanitize(text)}</div>

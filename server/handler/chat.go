@@ -59,6 +59,12 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 	var resp ChatResponse
 
 	switch req.Model {
+	case "gemma-3-27b-it":
+		reply, updatedHistory := ai_models.GeminiChat(history, req.Input, req.Model)
+		sessions.Lock()
+		sessions.histories[sessionID] = updatedHistory // Update the session history atomically
+		sessions.Unlock()
+		resp = ChatResponse{Response: helper.HtmlOrCurlResponse(isHTML, reply)}
 	case "gemini-2.5-flash":
 		reply, updatedHistory := ai_models.GeminiChat(history, req.Input, req.Model)
 		sessions.Lock()
