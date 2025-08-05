@@ -2,6 +2,7 @@ package helper
 
 import (
 	"bytes"
+	"encoding/base64"
 	"html"
 
 	"github.com/yuin/goldmark"
@@ -26,4 +27,9 @@ func HtmlOrCurlResponse(isHTML bool, response string) string {
 		return htmlOutput
 	}
 	return response
+}
+
+func EncodeByteSliceToBase64(images []byte) string {
+	base64Str := base64.StdEncoding.EncodeToString(images)
+	return base64Str
 }

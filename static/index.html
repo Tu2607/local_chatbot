@@ -63,6 +63,14 @@
       messages.scrollTop = messages.scrollHeight;
     }
 
+    function addImage(role, encodedImage) {
+      const msg = document.createElement('div');
+      msg.className = 'msg';
+      msg.innerHTML = `<span class="${role}">${role === 'user' ? 'You' : 'Bot'}:</span> <img src="data:image/png;base64,${encodedImage}" alt="Generated Image" style="max-width: 100%; height: auto;">`;
+      messages.appendChild(msg);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
     async function send() {
       const input = document.getElementById('input');
       const model = document.getElementById('model').value;
@@ -86,7 +94,11 @@
       }
 
       const data = await res.json();
-      addMessage('bot', data.response);
+      if (model === 'gemini-2.0-flash-preview-image-generation') {
+        addImage('bot', data.response);
+      } else {
+        addMessage('bot', data.response);
+      }
     }
   </script>
 </body>

@@ -2,7 +2,6 @@ package ai_models
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 
@@ -63,7 +62,7 @@ func GeminiChat(history []*genai.Content, prompt string, selected_model string) 
 // The method definition is a bit future proofing as gemini-2.0-flash-preview-image-generation
 // is the only model that supports image generation at the moment. More models may support this in the future.
 // Hence we keep the string parameter for the model name.
-func GeminiImageGeneration(prompt string, selected_model string) string {
+func GeminiImageGeneration(prompt string, selected_model string) []byte {
 	ctx := context.Background()
 
 	// Initialize the GenAI client with the API key from environment variable
@@ -91,6 +90,13 @@ func GeminiImageGeneration(prompt string, selected_model string) string {
 		genai.Text(prompt),
 		config,
 	)
-	fmt.Println(result) // just a stub
-	return "Image generation is not yet implemented for now"
+
+	var imageURL []byte
+	for _, part := range result.Candidates[0].Content.Parts {
+		if part.InlineData != nil {
+			imageURL = part.InlineData.Data
+		}
+	}
+
+	return imageURL
 }
