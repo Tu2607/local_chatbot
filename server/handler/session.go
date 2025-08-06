@@ -7,7 +7,7 @@ import (
 )
 
 // Creating a struct to hold information of a chat session
-var sessions = struct {
+var genai_sessions = struct {
 	sync.RWMutex
 	histories map[string][]*genai.Content // The key is the session ID, and the value is a slice of Content representing the chat history
 }{

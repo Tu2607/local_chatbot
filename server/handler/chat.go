@@ -2,9 +2,8 @@ package handler
 
 import (
 	"encoding/json"
-	"local_chatbot/server/ai_models"
-	"local_chatbot/server/helper"
 	"net/http"
+	"slices"
 
 	"github.com/google/uuid"
 )
@@ -16,6 +15,19 @@ type ChatRequest struct {
 
 type ChatResponse struct {
 	Response string `json:"response"`
+}
+
+var availableGeminiModels = []string{
+	"gemma-3-27b-it",
+	"gemini-2.5-flash",
+	"gemini-2.5-pro",
+	"gemini-2.5-flash-lite",
+	"gemini-2.0-flash-preview-image-generation",
+}
+
+var availableOpenAIModels = []string{
+	"gpt-4o",
+	"gpt-4.1-mini",
 }
 
 func ChatHandler(w http.ResponseWriter, r *http.Request) {
@@ -31,14 +43,17 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if the response should be in HTML format
+	isHTML := r.URL.Query().Get("format") == "html"
+
 	// Check if cookie for session ID exists, if not create a new one
-	cookie, err := r.Cookie("sessionID")
+	cookie, err := r.Cookie(req.Model)
 	var sessionID string
 
 	if err != nil || cookie.Value == "" {
 		sessionID = uuid.New().String()
 		http.SetCookie(w, &http.Cookie{
-			Name:     "sessionID",
+			Name:     req.Model,
 			Value:    sessionID,
 			Path:     "/",
 			HttpOnly: true,
@@ -48,50 +63,27 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		sessionID = cookie.Value
 	}
 
-	sessions.RLock()
-	history := sessions.histories[sessionID]
-	sessions.RUnlock()
+	// May have to clear the cookie if the model changes outside of the family of models
+	// if cookie.Name != req.Model {
+	// http.SetCookie(w, &http.Cookie{
+	// Name:   cookie.Name,
+	// Value:  "",
+	// Path:   "/",
+	// MaxAge: -1,
+	// })
+	// }
 
-	// Check if the response should be in HTML format
-	isHTML := r.URL.Query().Get("format") == "html"
-
-	// Initialize the response variables
 	var resp ChatResponse
-
-	switch req.Model {
-	case "gemma-3-27b-it":
-		reply, updatedHistory := ai_models.GeminiChat(history, req.Input, req.Model)
-		sessions.Lock()
-		sessions.histories[sessionID] = updatedHistory // Update the session history atomically
-		sessions.Unlock()
-		resp = ChatResponse{Response: helper.HtmlOrCurlResponse(isHTML, reply)}
-	case "gemini-2.5-flash":
-		reply, updatedHistory := ai_models.GeminiChat(history, req.Input, req.Model)
-		sessions.Lock()
-		sessions.histories[sessionID] = updatedHistory // Update the session history atomically
-		sessions.Unlock()
-		resp = ChatResponse{Response: helper.HtmlOrCurlResponse(isHTML, reply)}
-	case "gemini-2.5-pro":
-		reply, updatedHistory := ai_models.GeminiChat(history, req.Input, req.Model)
-		sessions.Lock()
-		sessions.histories[sessionID] = updatedHistory // Update the session history atomically
-		sessions.Unlock()
-		resp = ChatResponse{Response: helper.HtmlOrCurlResponse(isHTML, reply)}
-	case "gemini-2.5-flash-lite": // The cheapest model
-		reply, updatedHistory := ai_models.GeminiChat(history, req.Input, req.Model)
-		sessions.Lock()
-		sessions.histories[sessionID] = updatedHistory // Update the session history atomically
-		sessions.Unlock()
-		resp = ChatResponse{Response: helper.HtmlOrCurlResponse(isHTML, reply)}
-	case "gemini-2.0-flash-preview-image-generation":
-		// No need to update history for image generation, I'm assuming the context is not needed
-		// if the prompt is sufficiently descriptive enough.
-		// Well, maybe in the future when I have time to implement it.
-		reply := ai_models.GeminiImageGeneration(req.Input, req.Model)
-		encodedReply := helper.EncodeByteSliceToBase64(reply)
-		resp = ChatResponse{Response: encodedReply}
-	case "local":
-		// reply = ai_models.OllamaChat(req.Input, "")
+	if slices.Contains(availableGeminiModels, req.Model) {
+		reply := GeminiHandler(sessionID, req.Input, req.Model, isHTML)
+		resp = ChatResponse{Response: reply}
+	} else if slices.Contains(availableOpenAIModels, req.Model) {
+		reply := OpenAIHandler(req.Input, req.Model, isHTML)
+		resp = ChatResponse{Response: reply}
+		// Call the OpenAI handler function
+	} else {
+		http.Error(w, "Unsupported model", http.StatusBadRequest)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
