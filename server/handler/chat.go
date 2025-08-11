@@ -30,62 +30,54 @@ var availableOpenAIModels = []string{
 	"gpt-4.1-mini",
 }
 
-func ChatHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method. Only POST is allowed", http.StatusMethodNotAllowed)
-		return
+func ChatHandler(redis_session_manager *RedisSessionManager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Invalid request method. Only POST is allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req ChatRequest
+		// Decode the JSON request body, filling out the fields
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Failed to decode request body", http.StatusBadRequest)
+			return
+		}
+
+		// Check if the response should be in HTML format
+		isHTML := r.URL.Query().Get("format") == "html"
+
+		cookie, err := r.Cookie(req.Model)
+		var sessionID string
+
+		if err != nil || cookie.Value == "" {
+			// No session cookie, so create a new session
+			sessionID = uuid.New().String()
+			http.SetCookie(w, &http.Cookie{
+				Name:     req.Model,
+				Value:    sessionID,
+				Path:     "/",
+				HttpOnly: true,
+				Secure:   true,
+			})
+		} else {
+			sessionID = cookie.Value
+		}
+
+		var resp ChatResponse
+		if slices.Contains(availableGeminiModels, req.Model) {
+			reply := GeminiHandler(redis_session_manager, sessionID, req.Input, req.Model, isHTML)
+			resp = ChatResponse{Response: reply}
+		} else if slices.Contains(availableOpenAIModels, req.Model) {
+			reply := OpenAIHandler(req.Input, req.Model, isHTML)
+			resp = ChatResponse{Response: reply}
+			// Call the OpenAI handler function
+		} else {
+			http.Error(w, "Unsupported model", http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
 	}
-
-	var req ChatRequest
-	// Decode the JSON request body, filling out the fields
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Failed to decode request body", http.StatusBadRequest)
-		return
-	}
-
-	// Check if the response should be in HTML format
-	isHTML := r.URL.Query().Get("format") == "html"
-
-	// Check if cookie for session ID exists, if not create a new one
-	cookie, err := r.Cookie(req.Model)
-	var sessionID string
-
-	if err != nil || cookie.Value == "" {
-		sessionID = uuid.New().String()
-		http.SetCookie(w, &http.Cookie{
-			Name:     req.Model,
-			Value:    sessionID,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   true,
-		})
-	} else {
-		sessionID = cookie.Value
-	}
-
-	// May have to clear the cookie if the model changes outside of the family of models
-	// if cookie.Name != req.Model {
-	// http.SetCookie(w, &http.Cookie{
-	// Name:   cookie.Name,
-	// Value:  "",
-	// Path:   "/",
-	// MaxAge: -1,
-	// })
-	// }
-
-	var resp ChatResponse
-	if slices.Contains(availableGeminiModels, req.Model) {
-		reply := GeminiHandler(sessionID, req.Input, req.Model, isHTML)
-		resp = ChatResponse{Response: reply}
-	} else if slices.Contains(availableOpenAIModels, req.Model) {
-		reply := OpenAIHandler(req.Input, req.Model, isHTML)
-		resp = ChatResponse{Response: reply}
-		// Call the OpenAI handler function
-	} else {
-		http.Error(w, "Unsupported model", http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
 }
