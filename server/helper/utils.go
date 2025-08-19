@@ -4,7 +4,16 @@ import (
 	"bytes"
 	"encoding/base64"
 	"html"
+	"log"
+	"strings"
 
+	"time"
+
+	"math/rand"
+
+	"local_chatbot/server/template"
+
+	"github.com/oklog/ulid/v2"
 	"github.com/yuin/goldmark"
 )
 
@@ -32,4 +41,33 @@ func HtmlOrCurlResponse(isHTML bool, response string) string {
 func EncodeByteSliceToBase64(images []byte) string {
 	base64Str := base64.StdEncoding.EncodeToString(images)
 	return base64Str
+}
+
+func GenerateULID() string {
+	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
+	ms := ulid.Timestamp(time.Now())
+	new_ulid, err := ulid.New(ms, entropy)
+	if err != nil {
+		log.Println("Error generating ULID:", err)
+	}
+
+	return new_ulid.String()
+}
+
+func ReverseSlice(s []string) []string {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+	return s
+}
+
+// A helper function that combine multiple chat message into one big text body with new lines
+func CombineChatMessages(messages []template.Message) string {
+	var combined strings.Builder
+	for _, msg := range messages {
+		combined.WriteString(msg.Role + ": ")
+		combined.WriteString(msg.Content)
+		combined.WriteString("\n")
+	}
+	return combined.String()
 }

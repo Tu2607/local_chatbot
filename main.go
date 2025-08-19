@@ -26,8 +26,9 @@ func main() {
 
 	redis_session_manager := handler.NewRedisSessionManager(redis_db)
 
-	// Handle the chat api
+	// Handle the APIs
 	mux.HandleFunc("/chat", handler.ChatHandler(redis_session_manager))
+	mux.HandleFunc("/session", handler.SessionHandler(redis_session_manager))
 
 	port := "55572"
 	fmt.Println("Starting server on port", port)

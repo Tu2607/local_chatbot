@@ -2,10 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"slices"
 
-	"github.com/google/uuid"
+	"local_chatbot/server/helper"
 )
 
 type ChatRequest struct {
@@ -51,8 +52,9 @@ func ChatHandler(redis_session_manager *RedisSessionManager) http.HandlerFunc {
 		var sessionID string
 
 		if err != nil || cookie.Value == "" {
-			// No session cookie, so create a new session
-			sessionID = uuid.New().String()
+			// Use ULID so we can sort the sessions.
+			sessionID = helper.GenerateULID()
+			fmt.Println("Created new session ID:", sessionID)
 			http.SetCookie(w, &http.Cookie{
 				Name:     req.Model,
 				Value:    sessionID,
