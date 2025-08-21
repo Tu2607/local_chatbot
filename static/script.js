@@ -1,3 +1,4 @@
+console.log("Loaded script.js");
 const messages = document.getElementById('messages');
 
 // Add a message to the messages area
@@ -55,3 +56,65 @@ async function send() {
         addMessage('bot', data.response);
     }
 }
+
+async function fetchSessions() {
+    console.log("Fetching sessions...");
+    const sessionList = document.getElementById('session-list');
+
+    // Get the all the sessions ID
+    const res = await fetch('/session?key=allid');
+    if (!res.ok) {
+        console.error('Error fetching sessions:', res.statusText);
+        return;
+    }
+    
+    const sessions = await res.json();
+    // sessions is a hash with the key "keys" and the value being an array of sessionIDs
+    keys = sessions['keys'];
+    // log the session IDs
+    console.log("Fetched session IDs:", keys);
+    for (const sessionID of keys) {
+        const res = await fetch(`/session?key=${sessionID}&format=html`);
+        if (!res.ok) {
+            console.error(`Error fetching session ${sessionID}:`, res.statusText);
+            continue;
+        }
+        const sessionData = await res.json();
+
+        // Process the returned session data
+        const sessionChatHistory = sessionData['context']; // This is an array of struct that contain message and role
+        console.log(`Session ${sessionID} chat history:`, sessionChatHistory);
+
+        const li = document.createElement('li');
+        li.textContent = `- ${sessionChatHistory[0]['content']}`;
+        li.onclick = () => loadSession(sessionID);
+        sessionList.appendChild(li);
+    }
+    
+}
+
+async function loadSession(sessionID) {
+    currentSessionID = sessionID;
+
+    // Clear the current chat
+    messages.innerHTML = '';
+
+    // Fetch the session messages
+    const res = await fetch(`/session?key=${sessionID}`);
+    if (!res.ok) {
+        console.error(`Error fetching session ${sessionID}:`, res.statusText);
+        return;
+    }
+
+    const sessionData = await res.json();
+
+    // Process the returned session data
+    const sessionChatHistory = sessionData['context']; // This is an array of struct that contain message and role
+
+    for (const message of sessionChatHistory) {
+        addMessage(message['role'], message['content']);
+    }
+}
+
+// Window load event
+window.onload = fetchSessions;

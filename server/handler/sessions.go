@@ -5,19 +5,16 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"local_chatbot/server/helper"
 	"local_chatbot/server/template"
 )
 
-type SessionRequest struct {
-	Key []template.Message `json:"key"`
+type SessionContextRequest struct {
+	ChatHistory []template.Message `json:"context"`
 }
 
 type AllSessionRequest struct {
 	Keys []string `json:"keys"`
-}
-
-type AllSessionContextRequest struct {
-	Contexts []template.Message `json:"contexts"`
 }
 
 func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
@@ -43,27 +40,6 @@ func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
 				resp := AllSessionRequest{Keys: sessionsID}
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(resp)
-				// } else if key == "allcontext" {
-				// allSessionID, err := redisSessionManager.GetAllSessionsID(context.Background(), "*")
-				// if err != nil {
-				// http.Error(w, "Failed to get all sessions IDs", http.StatusInternalServerError)
-				// return
-				// }
-
-				// // Now that we have all session IDs, we can retrieve their histories/chat contexts
-				// var allHistories []template.Message
-				// for _, sessionID := range allSessionID {
-				// history, err := redisSessionManager.GetSessionHistory(context.Background(), sessionID)
-				// if err != nil {
-				// http.Error(w, "Failed to get session history", http.StatusInternalServerError)
-				// return
-				// }
-				// allHistories = append(allHistories, history...)
-				// }
-				// resp := AllSessionContextRequest{Contexts: allHistories}
-
-				// w.Header().Set("Content-Type", "application/json")
-				// json.NewEncoder(w).Encode(resp)
 			} else if key != "" {
 				// Handle GET requests for a specific session chat context
 				ctx := context.Background()
@@ -80,7 +56,20 @@ func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
 				}
 
 				// Return the session history
-				resp := SessionRequest{Key: history}
+				resp := SessionContextRequest{ChatHistory: history}
+
+				// Because we can't modify `resp` in place since it's not a reference,
+				// we need to create a new response object with the modified content that parsed the text to HTML.
+				// If the request has a query parameter `format=html`, we will convert the content to HTML
+				if isHTML := r.URL.Query().Get("format") == "html"; isHTML {
+					htmlResp := make([]template.Message, len(resp.ChatHistory))
+					for i, msg := range resp.ChatHistory {
+						htmlContent := helper.HtmlOrCurlResponse(isHTML, msg.Content)
+						htmlResp[i] = template.Message{Role: msg.Role, Content: htmlContent}
+					}
+					resp = SessionContextRequest{ChatHistory: htmlResp}
+				}
+
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(resp)
 			} else {

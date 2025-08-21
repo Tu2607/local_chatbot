@@ -21,6 +21,7 @@ func GeminiHandler(curr_session *RedisSessionManager, sessionID string, input st
 		log.Printf("Error fetching session history: %v", err)
 		return "Error fetching session history"
 	}
+	log.Println("Length of current session:", len(completeHistory))
 
 	// Experimental Feature
 	// A heuristic here to save on tokens. We will try to summarize the each 6 messages from the chat
@@ -46,14 +47,17 @@ func GeminiHandler(curr_session *RedisSessionManager, sessionID string, input st
 				continue
 			}
 
+			log.Println("Summarizing chunk starting at index:", i)
 			chunk := helper.CombineChatMessages(completeHistory[i:end])
-			temp_history := []*genai.Content{genai.NewContentFromText(chunk, genai.RoleUser)}
-			reply, _ := ai_models.GeminiChat(temp_history, "Please summarize the conversation without using pronouns and retain important details with at most 4 sentences. No need to double check with me.", model)
+			temp_history := []*genai.Content{genai.NewContentFromText(chunk, genai.RoleModel)}
+			reply, _ := ai_models.GeminiChat(temp_history, "Please summarize the conversation without using pronouns and retain important details within at most 5 sentences. No need to double check with me.", model)
 			summarizedHistory = append(summarizedHistory, template.Message{Content: reply, Role: genai.RoleModel})
 
 			// Save the summarizedHistory to Redis under the "summarized" key
 			if err := curr_session.SaveSessionHistory(ctx, sessionID, "summarized", summarizedHistory); err != nil {
 				log.Printf("Error saving summarized session history: %v", err)
+			} else {
+				break // Break after summarizing a chunk
 			}
 		}
 	}
@@ -75,7 +79,7 @@ func GeminiHandler(curr_session *RedisSessionManager, sessionID string, input st
 		reply := ai_models.GeminiImageGeneration(input, model)
 		return helper.EncodeByteSliceToBase64(reply)
 	default:
-		lastChatIndexSummarized := len(summarizedHistory) * 6 // Very experimental. This gave us the lastest message index in the completeHistory that was summarized
+		lastChatIndexSummarized := len(summarizedHistory) * 6 // Very experimental. This gave us the latest message index in the completeHistory that was summarized
 		var combinedHistory []*genai.Content
 
 		// This means chunk is not yet full.
@@ -89,13 +93,17 @@ func GeminiHandler(curr_session *RedisSessionManager, sessionID string, input st
 			combinedHistory = geminiHistory
 		}
 
-		reply, updatedHistory := ai_models.GeminiChat(combinedHistory, input, model)
+		reply, _ := ai_models.GeminiChat(combinedHistory, input, model)
+
+		// Now that have the reply, time to update the genericHistory
+		completeHistory = append(completeHistory, template.Message{Content: input, Role: genai.RoleUser})
+		completeHistory = append(completeHistory, template.Message{Content: reply, Role: genai.RoleModel})
 
 		// Convert the updated history back to the generic format
-		for _, content := range updatedHistory {
-			genericMsg := template.Message{Content: content.Parts[0].Text, Role: content.Role}
-			completeHistory = append(completeHistory, genericMsg)
-		}
+		// for _, content := range updatedHistory {
+		// genericMsg := template.Message{Content: content.Parts[0].Text, Role: content.Role}
+		// completeHistory = append(completeHistory, genericMsg)
+		// }
 		// Update the session history in Redis
 		if err := curr_session.SaveSessionHistory(ctx, sessionID, "complete", completeHistory); err != nil {
 			log.Printf("Error updating session history: %v", err)
