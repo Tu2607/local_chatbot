@@ -100,8 +100,6 @@ async function fetchSessions() {
 }
 
 async function loadSession(sessionID) {
-    currentSessionID = sessionID;
-
     // Clear the current chat
     messages.innerHTML = '';
 
@@ -113,6 +111,13 @@ async function loadSession(sessionID) {
     }
 
     const sessionData = await res.json();
+
+    // Change the session id in the cookie
+    document.cookie = `Value=${sessionID}; path=/;`;
+
+    // Change model selector to have the model used by that session
+    const modelSelector = document.getElementById('model');
+    modelSelector.value = sessionData['model'];
 
     // Process the returned session data
     const sessionChatHistory = sessionData['context']; // This is an array of struct that contain message and role

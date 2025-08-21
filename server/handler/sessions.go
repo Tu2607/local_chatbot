@@ -11,6 +11,7 @@ import (
 
 type SessionContextRequest struct {
 	ChatHistory []template.Message `json:"context"`
+	Model       string             `json:"model"`
 }
 
 type AllSessionRequest struct {
@@ -44,8 +45,16 @@ func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
 				// Handle GET requests for a specific session chat context
 				ctx := context.Background()
 				history, err := redisSessionManager.GetSessionHistory(ctx, key, "complete")
+
 				if err != nil {
 					http.Error(w, "Failed to get session history", http.StatusInternalServerError)
+					return
+				}
+
+				model, err := redisSessionManager.GetSessionModel(ctx, key)
+
+				if err != nil {
+					http.Error(w, "Failed to get session model", http.StatusInternalServerError)
 					return
 				}
 
@@ -56,7 +65,7 @@ func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
 				}
 
 				// Return the session history
-				resp := &SessionContextRequest{ChatHistory: history}
+				resp := &SessionContextRequest{ChatHistory: history, Model: model}
 
 				// If the request has a query parameter `format=html`, we will convert the content to HTML
 				if isHTML := r.URL.Query().Get("format") == "html"; isHTML {

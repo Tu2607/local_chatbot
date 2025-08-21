@@ -99,14 +99,13 @@ func GeminiHandler(curr_session *RedisSessionManager, sessionID string, input st
 		completeHistory = append(completeHistory, template.Message{Content: input, Role: genai.RoleUser})
 		completeHistory = append(completeHistory, template.Message{Content: reply, Role: genai.RoleModel})
 
-		// Convert the updated history back to the generic format
-		// for _, content := range updatedHistory {
-		// genericMsg := template.Message{Content: content.Parts[0].Text, Role: content.Role}
-		// completeHistory = append(completeHistory, genericMsg)
-		// }
 		// Update the session history in Redis
 		if err := curr_session.SaveSessionHistory(ctx, sessionID, "complete", completeHistory); err != nil {
 			log.Printf("Error updating session history: %v", err)
+		}
+		// Set the session model in Redis, ensuring that the conversation is now locked into a specified model after getting a response
+		if err := curr_session.SaveSessionModel(ctx, sessionID, model); err != nil {
+			log.Printf("Error saving session model: %v", err)
 		}
 
 		return helper.HtmlOrCurlResponse(isHTML, reply)

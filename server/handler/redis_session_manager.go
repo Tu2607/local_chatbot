@@ -75,7 +75,20 @@ func (rsm *RedisSessionManager) SaveSessionHistory(ctx context.Context, sessionI
 		log.Fatal("Failed to marshal session history:", err)
 	}
 
-	// Store the updated session history in Redis under the session ID with key "complete"
 	return rsm.client.HSet(ctx, sessionID, key, historyData).Err()
-	// return rsm.client.Set(ctx, sessionID, historyData, 0).Err()
+}
+
+func (rsm *RedisSessionManager) SaveSessionModel(ctx context.Context, sessionID string, model string) error {
+	return rsm.client.HSet(ctx, sessionID, "model", model).Err()
+}
+
+func (rsm *RedisSessionManager) GetSessionModel(ctx context.Context, sessionID string) (string, error) {
+	modelData, err := rsm.client.HGet(ctx, sessionID, "model").Result()
+	if err == redis.Nil {
+		return "", nil // No model found for the session
+	} else if err != nil {
+		return "", err
+	}
+
+	return modelData, nil
 }
