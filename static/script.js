@@ -6,6 +6,12 @@ function addMessage(role, text) {
     const msg = document.createElement('div');
     msg.className = 'msg';
 
+    if (role === 'user') {
+        role = 'user';
+    } else if (role === 'model') {
+        role = 'bot';
+    }
+
     msg.innerHTML = `
     <span class="${role}">${role === 'user' ? 'You' : 'Bot'}:</span>
     <div class="message-body">${DOMPurify.sanitize(text)}</div>
@@ -74,7 +80,7 @@ async function fetchSessions() {
     // log the session IDs
     console.log("Fetched session IDs:", keys);
     for (const sessionID of keys) {
-        const res = await fetch(`/session?key=${sessionID}&format=html`);
+        const res = await fetch(`/session?key=${sessionID}`);
         if (!res.ok) {
             console.error(`Error fetching session ${sessionID}:`, res.statusText);
             continue;
@@ -100,7 +106,7 @@ async function loadSession(sessionID) {
     messages.innerHTML = '';
 
     // Fetch the session messages
-    const res = await fetch(`/session?key=${sessionID}`);
+    const res = await fetch(`/session?key=${sessionID}&format=html`);
     if (!res.ok) {
         console.error(`Error fetching session ${sessionID}:`, res.statusText);
         return;
