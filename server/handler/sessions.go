@@ -56,18 +56,14 @@ func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
 				}
 
 				// Return the session history
-				resp := SessionContextRequest{ChatHistory: history}
+				resp := &SessionContextRequest{ChatHistory: history}
 
-				// Because we can't modify `resp` in place since it's not a reference,
-				// we need to create a new response object with the modified content that parsed the text to HTML.
 				// If the request has a query parameter `format=html`, we will convert the content to HTML
 				if isHTML := r.URL.Query().Get("format") == "html"; isHTML {
-					htmlResp := make([]template.Message, len(resp.ChatHistory))
 					for i, msg := range resp.ChatHistory {
 						htmlContent := helper.HtmlOrCurlResponse(isHTML, msg.Content)
-						htmlResp[i] = template.Message{Role: msg.Role, Content: htmlContent}
+						resp.ChatHistory[i] = template.Message{Role: msg.Role, Content: htmlContent}
 					}
-					resp = SessionContextRequest{ChatHistory: htmlResp}
 				}
 
 				w.Header().Set("Content-Type", "application/json")
