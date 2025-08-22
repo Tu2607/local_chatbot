@@ -1,6 +1,36 @@
 console.log("Loaded script.js");
 const messages = document.getElementById('messages');
 
+// Crockford's Base32 (no I, L, O, U)
+const ENCODING = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+function encodeTime(ms, len = 10) {
+  // ms is a Number; 48 bits fits safely in JS Number (53-bit mantissa)
+  let t = ms;
+  const out = Array(len);
+  for (let i = len - 1; i >= 0; i--) {
+    out[i] = ENCODING[t % 32];
+    t = Math.floor(t / 32);
+  }
+  return out.join("");
+}
+
+function randomChars(len) {
+  // Works in browsers and modern Node (global crypto with getRandomValues)
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  // 256 is divisible by 32, so (byte & 31) is unbiased
+  let s = "";
+  for (let i = 0; i < len; i++) s += ENCODING[bytes[i] & 31];
+  return s;
+}
+
+function ulid(now = Date.now()) {
+  return encodeTime(now, 10) + randomChars(16);
+}
+
+let currentSessionULID = ulid();
+
 // Add a message to the messages area
 function addMessage(role, text) {
     const msg = document.createElement('div');
@@ -47,7 +77,7 @@ async function send() {
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 'input': prompt, 'model': model })
+        body: JSON.stringify({ 'input': prompt, 'model': model, 'sessionID': currentSessionULID })
     });
 
     if (!res.ok) {
@@ -61,11 +91,15 @@ async function send() {
     } else {
         addMessage('bot', data.response);
     }
+
+    // Update the session list after sending a message
+    fetchSessions();
 }
 
 async function fetchSessions() {
     console.log("Fetching sessions...");
     const sessionList = document.getElementById('session-list');
+    sessionList.innerHTML = '';
 
     // Get the all the sessions ID
     const res = await fetch('/session?key=allid');
@@ -102,6 +136,7 @@ async function fetchSessions() {
 async function loadSession(sessionID) {
     // Clear the current chat
     messages.innerHTML = '';
+    currentSessionULID = sessionID;
 
     // Fetch the session messages
     const res = await fetch(`/session?key=${sessionID}&format=html`);

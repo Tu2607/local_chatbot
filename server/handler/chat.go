@@ -2,7 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
 	"slices"
 
@@ -10,8 +10,9 @@ import (
 )
 
 type ChatRequest struct {
-	Input string `json:"input"`
-	Model string `json:"model"`
+	Input     string `json:"input"`
+	Model     string `json:"model"`
+	SessionID string `json:"sessionID"`
 }
 
 type ChatResponse struct {
@@ -48,22 +49,10 @@ func ChatHandler(redis_session_manager *RedisSessionManager) http.HandlerFunc {
 		// Check if the response should be in HTML format
 		isHTML := r.URL.Query().Get("format") == "html"
 
-		cookie, err := r.Cookie(req.Model)
-		var sessionID string
-
-		if err != nil || cookie.Value == "" {
-			// Use ULID so we can sort the sessions.
+		sessionID := req.SessionID
+		if sessionID == "" {
+			log.Println("Session ID is required. Generating new one.")
 			sessionID = helper.GenerateULID()
-			fmt.Println("Created new session ID:", sessionID)
-			http.SetCookie(w, &http.Cookie{
-				Name:     req.Model,
-				Value:    sessionID,
-				Path:     "/",
-				HttpOnly: true,
-				Secure:   true,
-			})
-		} else {
-			sessionID = cookie.Value
 		}
 
 		var resp ChatResponse
