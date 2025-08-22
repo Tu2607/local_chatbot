@@ -126,6 +126,7 @@ async function fetchSessions() {
         console.log(`Session ${sessionID} chat history:`, sessionChatHistory);
 
         const li = document.createElement('li');
+        li.className = 'session-link';
         li.textContent = `- ${sessionChatHistory[0]['content']}`;
         li.onclick = () => loadSession(sessionID);
         sessionList.appendChild(li);
