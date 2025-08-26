@@ -16,7 +16,7 @@
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.3/dist/purify.min.js"></script>
   <meta charset="UTF-8">
-  <title>Raspberry Pi Chatbot</title>
+  <title>Local Chatbot</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
 </head>
@@ -28,7 +28,7 @@
       </ul>
   </div>
   <div id="chat">
-    <h2>💬 Raspberry Pi Chatbot</h2>
+    <h2>💬 Local Chatbot</h2>
     <div id="messages"></div>
     <textarea id="input" placeholder="Type your message..."></textarea><br>
     <select id="model">
@@ -41,6 +41,7 @@
       <option value="local">Local (Ollama)</option>
     </select><br>
     <button onclick="send()" on>Send</button>
+    <button onclick="startNewSession()">New Chat</button>
   </div>
   <script src="script.js"></script>
 </body>

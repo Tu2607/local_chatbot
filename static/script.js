@@ -127,11 +127,40 @@ async function fetchSessions() {
 
         const li = document.createElement('li');
         li.className = 'session-link';
-        li.textContent = `- ${sessionChatHistory[0]['content']}`;
         li.onclick = () => loadSession(sessionID);
+
+        const linkContent = document.createElement('span');
+        linkContent.className = 'session-context';
+        linkContent.textContent = `- ${sessionChatHistory[0]['content']}`;
+
+        // Creating a three-dot dropdown container
+        const dropdownContainer = document.createElement('div');
+        dropdownContainer.className = 'dropdown';
+
+        // Creating the three-dot button
+        const dropdownButton = document.createElement('span');
+        dropdownButton.className = 'dropdown-button';
+        dropdownButton.textContent = '...';
+        dropdownButton.onclick = (e) => {
+            e.stopPropagation(); // Prevent triggering the link click
+            const menu = dropdownContainer.querySelector('.dropdown-menu');
+            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        }
+
+        // The dropdown menu
+        const dropdownMenu = document.createElement('div');
+        dropdownMenu.className = 'dropdown-menu';
+        dropdownMenu.innerHTML = `
+            <div class="dropdown-item" onclick="deleteSession('${sessionID}')">Delete</div>
+        `;
+
+        dropdownContainer.appendChild(dropdownButton);
+        dropdownContainer.appendChild(dropdownMenu);
+
+        li.appendChild(linkContent);
+        li.appendChild(dropdownContainer);
         sessionList.appendChild(li);
     }
-    
 }
 
 async function loadSession(sessionID) {
@@ -161,6 +190,45 @@ async function loadSession(sessionID) {
     for (const message of sessionChatHistory) {
         addMessage(message['role'], message['content']);
     }
+}
+
+async function startNewSession() {
+    // Clear the current chat
+    messages.innerHTML = '';
+    currentSessionULID = null;
+
+    // Generate a new session ID
+    currentSessionULID = ulid();
+
+    // Reset the model selector to the default value
+    const modelSelector = document.getElementById('model');
+    modelSelector.value = 'gemma-3-27b-it';
+
+}
+
+async function deleteSession(sessionID) {
+    if (!sessionID) {
+        console.error("No session ID provided for deletion.");
+        return;
+    }
+
+    const res = await fetch(`/session?key=${sessionID}`, {
+        method: 'DELETE'
+    });
+
+    if (!res.ok) {
+        console.error(`Error deleting session ${sessionID}:`, res.statusText);
+        return;
+    }
+
+    console.log(`Session ${sessionID} deleted successfully.`);
+    // If the deleted session is the current one, start a new session
+    if (currentSessionULID === sessionID) {
+        startNewSession();
+    }
+
+    // Refresh the session list
+    fetchSessions();
 }
 
 // Window load event

@@ -81,7 +81,20 @@ func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
 				http.Error(w, "Invalid session key", http.StatusBadRequest)
 			}
 		case http.MethodDelete:
-			// Handle DELETE requests
+			// Handle DELETE requests for a specific session
+			key := r.URL.Query().Get("key")
+			if key == "" {
+				http.Error(w, "Missing session key", http.StatusBadRequest)
+				return
+			}
+
+			ctx := context.Background()
+			if err := redisSessionManager.DeleteSession(ctx, key); err != nil {
+				http.Error(w, "Failed to delete session", http.StatusInternalServerError)
+				return
+			}
+
+			w.WriteHeader(http.StatusNoContent)
 		}
 	}
 }

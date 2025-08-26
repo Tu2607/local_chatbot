@@ -28,13 +28,25 @@ body {
   margin-bottom: 0.5rem;
   background: #ffffff75;
   white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
+  position: relative; /* This is crucial for positioning the dropdown menu */
+  display: flex; /* Use flexbox to align the text and button */
+  justify-content: space-between; /* Space out the children */
+  align-items: center; /* Vertically align the children */
 }
 .session-link:hover {
   background: #837bcc;
   cursor: pointer;
 }
+
+.session-context {
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
 
 #chat {
     flex-grow: 1;
@@ -75,4 +87,38 @@ textarea {
 select,
 button {
     margin-top: 0.5rem;
+}
+
+.dropdown {
+    position: relative;
+}
+
+.dropdown-button {
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0 0.5rem;
+}
+
+.dropdown-menu {
+    display: none; /* Hide the menu by default */
+    position: absolute; /* Position the menu relative to the parent li */
+    right: 0;
+    top: 100%;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    z-index: 10;
+}
+
+.dropdown-menu a {
+    display: none;
+    padding: 0.5rem 1rem;
+    text-decoration: none;
+    color: #333;
+}
+
+.dropdown-menu a:hover {
+    background-color: #f0f0f0;
+    display: block;
 }
