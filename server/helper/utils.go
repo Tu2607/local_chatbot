@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"html"
 	"log"
+	"net"
 	"strings"
 
 	"time"
@@ -70,4 +71,16 @@ func CombineChatMessages(messages []template.Message) string {
 		combined.WriteString("\n")
 	}
 	return combined.String()
+}
+
+func CheckPort(port string) bool {
+	listener, err := net.Listen("tcp", port)
+	if err != nil {
+		// Port is already in use or not accessible
+		// May need more logging here in the future
+		return false
+	}
+	listener.Close()
+	// Port is available
+	return true
 }

@@ -33,6 +33,7 @@ body {
   display: flex; /* Use flexbox to align the text and button */
   justify-content: space-between; /* Space out the children */
   align-items: center; /* Vertically align the children */
+  overflow: visible;
 }
 .session-link:hover {
   background: #837bcc;
