@@ -32,6 +32,10 @@ var availableOpenAIModels = []string{
 	"gpt-4.1-mini",
 }
 
+var availableOllamaModels = []string{
+	"llama3.2:1b",
+}
+
 func ChatHandler(redis_session_manager *RedisSessionManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -63,6 +67,9 @@ func ChatHandler(redis_session_manager *RedisSessionManager) http.HandlerFunc {
 			reply := OpenAIHandler(req.Input, req.Model, isHTML)
 			resp = ChatResponse{Response: reply}
 			// Call the OpenAI handler function
+		} else if slices.Contains(availableOllamaModels, req.Model) {
+			reply := OllamaHandler(redis_session_manager, sessionID, req.Input, req.Model, isHTML)
+			resp = ChatResponse{Response: reply}
 		} else {
 			http.Error(w, "Unsupported model", http.StatusBadRequest)
 			return

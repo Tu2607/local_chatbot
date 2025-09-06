@@ -4,6 +4,7 @@ go 1.24.2
 
 require (
 	github.com/oklog/ulid/v2 v2.1.1
+	github.com/ollama/ollama v0.11.10
 	github.com/openai/openai-go v1.12.0
 	github.com/redis/go-redis/v9 v9.12.0
 	github.com/yuin/goldmark v1.7.13
