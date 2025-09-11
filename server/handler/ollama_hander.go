@@ -11,7 +11,34 @@ import (
 	"github.com/ollama/ollama/api"
 )
 
-func OllamaHandler(curr_session *RedisSessionManager, sessionID string, input string, model string, isHTML bool) string {
+type OllamaClient struct {
+	Client          *api.Client
+	SupportedModels []string
+}
+
+// Constructor for OllamaClient
+func NewOllamaClient() OllamaClient {
+	client, err := api.ClientFromEnvironment()
+	if err != nil {
+		log.Fatalf("Failed to create Ollama client: %v", err)
+	} else {
+		log.Println("Successfully created Ollama client")
+	}
+	return OllamaClient{
+		Client: client,
+		SupportedModels: []string{
+			"llama3.2:1b",
+			"qwen3-coder:30b",
+			"gpt-oss:20b",
+		},
+	}
+}
+
+func (client *OllamaClient) Chat(history []api.Message, prompt string, selected_model string) []api.Message {
+	return ai_models.OllamaChat(history, client.Client, prompt, selected_model)
+}
+
+func (client *OllamaClient) OllamaHandler(curr_session *RedisSessionManager, sessionID string, input string, model string, isHTML bool) string {
 	// Place holder for Ollama support
 	ctx := context.Background()
 
@@ -35,7 +62,7 @@ func OllamaHandler(curr_session *RedisSessionManager, sessionID string, input st
 	}
 
 	// Make a call to Ollama chat function
-	ollamaHistory = ai_models.OllamaChat(ollamaHistory, input, model)
+	ollamaHistory = client.Chat(ollamaHistory, input, model)
 
 	// Append the latest user input and the response to the complete history
 	completeHistory = append(completeHistory, template.Message{Content: input, Role: "user"})

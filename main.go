@@ -27,6 +27,23 @@ func main() {
 	// Serve static files from the "static" directory
 	mux.Handle("/", file_server)
 
+	// Check if Ollama is installed by doing ollama serve
+	ollamaCmd := exec.Command("ollama", "serve")
+	if err := ollamaCmd.Start(); err != nil {
+		log.Println("Error starting Ollama server. Ollama is not installed or not found in PATH. Please install Ollama to use Ollama models.")
+	} else {
+		log.Println("Ollama server is running.")
+	}
+
+	// TODO: Refactor to create each LLM client only once and reuse it
+	// instead of creating a new client for each request.
+	// This will improve performance and reduce overhead.
+	supportedClients := handler.SupportedClients{
+		Gemini: handler.NewGeminiClient(os.Getenv("GEMINI_API_KEY")),
+		Ollama: handler.NewOllamaClient(),
+		// OpenAI: NewOpenAIClient(os.Getenv("OPENAI_API_KEY")),
+	}
+
 	// Initialize Redis session manager
 	redis_db := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379", // Redis server address
@@ -37,14 +54,6 @@ func main() {
 
 	redis_session_manager := handler.NewRedisSessionManager(redis_db)
 
-	// Check if Ollama is installed by doing ollama serve
-	ollamaCmd := exec.Command("ollama", "serve")
-	if err := ollamaCmd.Start(); err != nil {
-		log.Println("Error starting Ollama server. Ollama is not installed or not found in PATH. Please install Ollama to use Ollama models.")
-	} else {
-		log.Println("Ollama server is running.")
-	}
-
 	port := "55572"
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -52,7 +61,7 @@ func main() {
 	}
 
 	// Handle the APIs
-	mux.HandleFunc("/chat", handler.ChatHandler(redis_session_manager))
+	mux.HandleFunc("/chat", handler.ChatHandler(redis_session_manager, &supportedClients))
 	mux.HandleFunc("/session", handler.SessionHandler(redis_session_manager))
 
 	go func() {

@@ -11,7 +11,40 @@ import (
 	"google.golang.org/genai"
 )
 
-func GeminiHandler(curr_session *RedisSessionManager, sessionID string, input string, model string, isHTML bool) string {
+type GeminiClient struct {
+	Client          *genai.Client
+	SupportedModels []string
+}
+
+// Constructor for GeminiClient
+func NewGeminiClient(api_key string) GeminiClient {
+	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
+		APIKey:  api_key,
+		Backend: genai.BackendGeminiAPI,
+	})
+	if err != nil {
+		log.Fatalf("Failed to create Gemini client: %v", err)
+	} else {
+		log.Println("Successfully created Gemini client")
+	}
+	return GeminiClient{
+		Client: client,
+		SupportedModels: []string{
+			"gemma-3-27b-it",
+			"gemini-2.5-flash",
+			"gemini-2.5-pro",
+			"gemini-2.5-flash-lite",
+			"gemini-2.0-flash-preview-image-generation",
+		},
+	}
+}
+
+// A wrapper that pass along the gemini client to avoid creating a new client for each request
+func (client *GeminiClient) Chat(history []*genai.Content, prompt string, selected_model string) (string, []*genai.Content) {
+	return ai_models.GeminiChat(history, client.Client, prompt, selected_model)
+}
+
+func (client *GeminiClient) GeminiHandler(curr_session *RedisSessionManager, sessionID string, input string, model string, isHTML bool) string {
 	ctx := context.Background()
 
 	// Fetch the session history from redis, the returned value is a slice of generic
@@ -50,7 +83,7 @@ func GeminiHandler(curr_session *RedisSessionManager, sessionID string, input st
 			log.Println("Summarizing chunk starting at index:", i)
 			chunk := helper.CombineChatMessages(completeHistory[i:end])
 			temp_history := []*genai.Content{genai.NewContentFromText(chunk, genai.RoleModel)}
-			reply, _ := ai_models.GeminiChat(temp_history, "Please summarize the conversation without using pronouns and retain important details within at most 5 sentences. No need to double check with me.", model)
+			reply, _ := client.Chat(temp_history, "Please summarize the conversation without using pronouns and retain important details within at most 5 sentences. No need to double check with me.", model)
 			summarizedHistory = append(summarizedHistory, template.Message{Content: reply, Role: genai.RoleModel})
 
 			// Save the summarizedHistory to Redis under the "summarized" key
@@ -93,7 +126,7 @@ func GeminiHandler(curr_session *RedisSessionManager, sessionID string, input st
 			combinedHistory = geminiHistory
 		}
 
-		reply, _ := ai_models.GeminiChat(combinedHistory, input, model)
+		reply, _ := client.Chat(combinedHistory, input, model)
 
 		// Now that have the reply, time to update the genericHistory
 		completeHistory = append(completeHistory, template.Message{Content: input, Role: genai.RoleUser})

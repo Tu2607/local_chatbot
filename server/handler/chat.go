@@ -19,12 +19,10 @@ type ChatResponse struct {
 	Response string `json:"response"`
 }
 
-var availableGeminiModels = []string{
-	"gemma-3-27b-it",
-	"gemini-2.5-flash",
-	"gemini-2.5-pro",
-	"gemini-2.5-flash-lite",
-	"gemini-2.0-flash-preview-image-generation",
+type SupportedClients struct {
+	Gemini GeminiClient
+	Ollama OllamaClient
+	// OpenAI *OpenAIClient // Placeholder for future OpenAI client struct
 }
 
 var availableOpenAIModels = []string{
@@ -36,7 +34,7 @@ var availableOllamaModels = []string{
 	"llama3.2:1b",
 }
 
-func ChatHandler(redis_session_manager *RedisSessionManager) http.HandlerFunc {
+func ChatHandler(redis_session_manager *RedisSessionManager, supportedClients *SupportedClients) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Invalid request method. Only POST is allowed", http.StatusMethodNotAllowed)
@@ -60,15 +58,15 @@ func ChatHandler(redis_session_manager *RedisSessionManager) http.HandlerFunc {
 		}
 
 		var resp ChatResponse
-		if slices.Contains(availableGeminiModels, req.Model) {
-			reply := GeminiHandler(redis_session_manager, sessionID, req.Input, req.Model, isHTML)
+		if slices.Contains(supportedClients.Gemini.SupportedModels, req.Model) {
+			reply := supportedClients.Gemini.GeminiHandler(redis_session_manager, sessionID, req.Input, req.Model, isHTML)
 			resp = ChatResponse{Response: reply}
 		} else if slices.Contains(availableOpenAIModels, req.Model) {
 			reply := OpenAIHandler(req.Input, req.Model, isHTML)
 			resp = ChatResponse{Response: reply}
 			// Call the OpenAI handler function
-		} else if slices.Contains(availableOllamaModels, req.Model) {
-			reply := OllamaHandler(redis_session_manager, sessionID, req.Input, req.Model, isHTML)
+		} else if slices.Contains(supportedClients.Ollama.SupportedModels, req.Model) {
+			reply := supportedClients.Ollama.OllamaHandler(redis_session_manager, sessionID, req.Input, req.Model, isHTML)
 			resp = ChatResponse{Response: reply}
 		} else {
 			http.Error(w, "Unsupported model", http.StatusBadRequest)

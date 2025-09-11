@@ -8,23 +8,8 @@ import (
 	"google.golang.org/genai"
 )
 
-func GeminiChat(history []*genai.Content, prompt string, selected_model string) (string, []*genai.Content) {
+func GeminiChat(history []*genai.Content, client *genai.Client, prompt string, selected_model string) (string, []*genai.Content) {
 	ctx := context.Background()
-
-	// Initialize the GenAI client with the API key from environment variable
-	apiKey := os.Getenv("GEMINI_API_KEY")
-	if apiKey == "" {
-		log.Fatal("GEMINI_API_KEY environment variable is not set")
-	}
-
-	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey:  apiKey,
-		Backend: genai.BackendGeminiAPI,
-	})
-
-	if err != nil {
-		log.Fatalf("Failed to create GenAI client: %v", err)
-	}
 
 	contents := []*genai.Content{
 		genai.NewContentFromText(prompt, genai.RoleUser),
