@@ -22,16 +22,7 @@ type ChatResponse struct {
 type SupportedClients struct {
 	Gemini GeminiClient
 	Ollama OllamaClient
-	// OpenAI *OpenAIClient // Placeholder for future OpenAI client struct
-}
-
-var availableOpenAIModels = []string{
-	"gpt-4o",
-	"gpt-4.1-mini",
-}
-
-var availableOllamaModels = []string{
-	"llama3.2:1b",
+	OpenAI OpenAIClient
 }
 
 func ChatHandler(redis_session_manager *RedisSessionManager, supportedClients *SupportedClients) http.HandlerFunc {
@@ -61,8 +52,8 @@ func ChatHandler(redis_session_manager *RedisSessionManager, supportedClients *S
 		if slices.Contains(supportedClients.Gemini.SupportedModels, req.Model) {
 			reply := supportedClients.Gemini.GeminiHandler(redis_session_manager, sessionID, req.Input, req.Model, isHTML)
 			resp = ChatResponse{Response: reply}
-		} else if slices.Contains(availableOpenAIModels, req.Model) {
-			reply := OpenAIHandler(req.Input, req.Model, isHTML)
+		} else if slices.Contains(supportedClients.OpenAI.SupportedModels, req.Model) {
+			reply := supportedClients.OpenAI.OpenAIHandler(redis_session_manager, sessionID, req.Input, req.Model, isHTML) // Haven't implemented session management for OpenAI yet
 			resp = ChatResponse{Response: reply}
 			// Call the OpenAI handler function
 		} else if slices.Contains(supportedClients.Ollama.SupportedModels, req.Model) {

@@ -30,6 +30,7 @@ func NewOllamaClient() OllamaClient {
 			"llama3.2:1b",
 			"qwen3-coder:30b",
 			"gpt-oss:20b",
+			"gemma3:27b",
 		},
 	}
 }

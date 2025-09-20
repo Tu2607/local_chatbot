@@ -3,20 +3,16 @@ package ai_models
 import (
 	"context"
 	"log"
-	"os"
 
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
-	"github.com/openai/openai-go/responses"
+	"local_chatbot/server/template"
+
+	"github.com/openai/openai-go/v2"
+	"github.com/openai/openai-go/v2/responses"
 )
 
-func OpenAIText(prompt string, model string) string {
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		log.Fatal("OPENAI_API_KEY environment variable is not set")
-	}
-
-	client := openai.NewClient(option.WithAPIKey(apiKey))
+func OpenAIText(client *openai.Client, history []template.Message, prompt string, model string) string {
+	// There is a method that return a conversation object that return an object with the conversation context and its ID.
+	//
 	// Instead of using chat completions, we use the response API directly
 	resp_params := responses.ResponseNewParams{
 		Model: model,
