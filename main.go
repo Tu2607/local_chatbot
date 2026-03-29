@@ -10,92 +10,93 @@ import (
 	"syscall"
 	"time"
 
+	"local_chatbot/internal/app"
+	"local_chatbot/internal/config"
 	"local_chatbot/server/handler"
-
-	"github.com/redis/go-redis/v9"
 )
 
 func main() {
-	// Signal handling for graceful shutdown
-	// ...
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
 
+	// Initialize application
+	application, err := app.New(cfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize application: %v", err)
+	}
+	defer application.Close()
+
+	// Setup HTTP routes
 	mux := http.NewServeMux()
-	file_server := http.FileServer(http.Dir("./static/"))
 
-	// Serve static files from the "static" directory
-	mux.Handle("/", file_server)
+	// Serve static files
+	mux.Handle("/", http.FileServer(http.Dir("./static/")))
 
-	// Check if Ollama is installed by doing ollama serve
-	ollamaCmd := exec.Command("ollama", "serve")
-	if err := ollamaCmd.Start(); err != nil {
-		log.Println("Error starting Ollama server. Ollama is not installed or not found in PATH. Please install Ollama to use Ollama models.")
-	} else {
-		log.Println("Ollama server is running.")
-	}
+	// Setup API endpoints with new handler that uses the provider registry
+	mux.HandleFunc("/chat", handler.ChatHandler(application.SessionManager, application.ProviderRegistry, &application.WgContextSync))
+	mux.HandleFunc("/session", handler.SessionHandler(application.SessionManager))
 
-	// TODO: Refactor to create each LLM client only once and reuse it
-	// instead of creating a new client for each request.
-	// This will improve performance and reduce overhead.
-	supportedClients := handler.SupportedClients{
-		Gemini: handler.NewGeminiClient(os.Getenv("GEMINI_API_KEY")),
-		Ollama: handler.NewOllamaClient(),
-		// OpenAI: NewOpenAIClient(os.Getenv("OPENAI_API_KEY")),
-	}
+	// Start Ollama server (optional)
+	ollamaCmd := startOllamaServer()
+	defer stopOllamaServer(ollamaCmd)
 
-	// Initialize Redis session manager
-	redis_db := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379", // Redis server address
-		Password: "",               // No password set
-		DB:       0,                // Use default DB
-
-	})
-
-	redis_session_manager := handler.NewRedisSessionManager(redis_db)
-
-	port := "55572"
+	// Create HTTP server
 	server := &http.Server{
-		Addr:    ":" + port,
+		Addr:    ":" + cfg.Port,
 		Handler: mux,
 	}
 
-	// Handle the APIs
-	mux.HandleFunc("/chat", handler.ChatHandler(redis_session_manager, &supportedClients))
-	mux.HandleFunc("/session", handler.SessionHandler(redis_session_manager))
+	// Signal handling for graceful shutdown
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
+	// Start server in goroutine
 	go func() {
-		log.Println("Starting server on port " + port)
+		log.Println("Starting server on port " + cfg.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}
 	}()
 
+	// Wait for shutdown signal
 	<-sig
+
 	// Graceful shutdown
 	log.Println("Shutting down server...")
-	// Shut down the http server, close database connections, etc.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	if err := application.WaitForContextSync(ctx); err != nil {
+		log.Printf("Warning: Context sync did not complete before shutdown: %v", err)
+	}
+
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Error on server shutting down: %v", err)
+		log.Fatalf("Error shutting down server: %v", err)
 	}
 	log.Println("Server gracefully stopped")
+}
 
-	// Close Redis connection
-	log.Printf("Closing Redis connection...")
-	if err := redis_db.Close(); err != nil {
-		log.Fatalf("Error closing Redis connection: %v", err)
+// Helper function to start Ollama server
+func startOllamaServer() *os.Process {
+	ollamaCmd := exec.Command("ollama", "serve")
+	if err := ollamaCmd.Start(); err != nil {
+		log.Println("Warning: Ollama server could not be started. Ollama may not be installed or accessible in PATH.")
+		return nil
 	}
-	log.Println("Redis connection closed.")
+	log.Println("Ollama server started")
+	return ollamaCmd.Process
+}
 
-	// Shutdown Ollama server if it was started
-	if ollamaCmd.Process != nil {
-		if err := ollamaCmd.Process.Kill(); err != nil {
-			log.Printf("Error stopping Ollama server: %v", err)
+// Helper function to stop Ollama server
+func stopOllamaServer(process *os.Process) {
+	if process != nil {
+		if err := process.Kill(); err != nil {
+			log.Printf("Warning: Error stopping Ollama server: %v", err)
 		} else {
-			log.Println("Ollama server stopped.")
+			log.Println("Ollama server stopped")
 		}
 	}
 }

@@ -2,86 +2,70 @@ package ai_models
 
 import (
 	"context"
-	"log"
-	"os"
+	"fmt"
 
 	"google.golang.org/genai"
 )
 
-func GeminiChat(history []*genai.Content, client *genai.Client, prompt string, selected_model string) (string, []*genai.Content) {
+func GeminiChat(chat_ctx []*genai.Content, client *genai.Client, prompt string, selected_model string) (string, error) {
 	ctx := context.Background()
 
-	contents := []*genai.Content{
+	latest_user_msg := []*genai.Content{
 		genai.NewContentFromText(prompt, genai.RoleUser),
 	}
 
 	// Append the history to the contents
-	updatedHistory := append(history, contents...)
+	latest_chat_ctx := append(chat_ctx, latest_user_msg...)
 
 	result, err := client.Models.GenerateContent(
 		ctx,
 		selected_model,
-		updatedHistory,
+		latest_chat_ctx,
 		nil, // Could add additional parameters here if needed for more thinking tokens
 	)
 
 	if err != nil {
-		log.Fatalf("Failed to generate content: %v", err)
+		return "", err
 	}
 
-	// For now, we only support text responses so we return the first candidate
 	var resultText string
 
 	if len(result.Candidates) > 0 {
 		resultText = result.Candidates[0].Content.Parts[0].Text
 	} else {
-		log.Fatalf("No candidates returned from the model")
+		return "", fmt.Errorf("no candidates returned from Gemini API")
 	}
 
-	// Append the response to the history
-	updatedHistory = append(updatedHistory, genai.NewContentFromText(resultText, genai.RoleModel))
-
-	return resultText, updatedHistory
+	return resultText, nil
 }
 
 // The method definition is a bit future proofing as gemini-2.0-flash-preview-image-generation
 // is the only model that supports image generation at the moment. More models may support this in the future.
 // Hence we keep the string parameter for the model name.
-func GeminiImageGeneration(prompt string, selected_model string) []byte {
+func GeminiImageGeneration(prompt string, client *genai.Client, selected_model string) ([]byte, error) {
 	ctx := context.Background()
-
-	// Initialize the GenAI client with the API key from environment variable
-	apiKey := os.Getenv("GEMINI_API_KEY")
-	if apiKey == "" {
-		log.Fatal("GEMINI_API_KEY environment variable is not set")
-	}
-
-	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey:  apiKey,
-		Backend: genai.BackendGeminiAPI,
-	})
-
-	if err != nil {
-		log.Fatalf("Failed to create GenAI client: %v", err)
-	}
 
 	config := &genai.GenerateContentConfig{
 		ResponseModalities: []string{"TEXT", "IMAGE"},
 	}
 
-	result, _ := client.Models.GenerateContent(
+	result, err := client.Models.GenerateContent(
 		ctx,
 		selected_model,
 		genai.Text(prompt),
 		config,
 	)
 
-	var imageURL []byte
+	if err != nil {
+		return nil, err
+	}
+
+	var imageData []byte
 	for _, part := range result.Candidates[0].Content.Parts {
 		if part.InlineData != nil {
-			imageURL = part.InlineData.Data
+			imageData = part.InlineData.Data
 		}
 	}
 
-	return imageURL
+	return imageData, nil
 }

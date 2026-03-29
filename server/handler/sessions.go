@@ -9,15 +9,6 @@ import (
 	"local_chatbot/server/template"
 )
 
-type SessionContextRequest struct {
-	ChatHistory []template.Message `json:"context"`
-	Model       string             `json:"model"`
-}
-
-type AllSessionRequest struct {
-	Keys []string `json:"keys"`
-}
-
 func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Handle session-related requests
@@ -38,13 +29,13 @@ func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
 					return
 				}
 
-				resp := AllSessionRequest{Keys: sessionsID}
+				resp := template.AllSessionRequest{Keys: sessionsID}
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(resp)
 			} else if key != "" {
 				// Handle GET requests for a specific session chat context
 				ctx := context.Background()
-				history, err := redisSessionManager.GetSessionHistory(ctx, key, "complete")
+				history, err := redisSessionManager.GetSessionHistory(ctx, key)
 
 				if err != nil {
 					http.Error(w, "Failed to get session history", http.StatusInternalServerError)
@@ -65,7 +56,7 @@ func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
 				}
 
 				// Return the session history
-				resp := &SessionContextRequest{ChatHistory: history, Model: model}
+				resp := &template.SessionContextRequest{ChatHistory: history, Model: model}
 
 				// If the request has a query parameter `format=html`, we will convert the content to HTML
 				if isHTML := r.URL.Query().Get("format") == "html"; isHTML {

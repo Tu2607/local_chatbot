@@ -23,8 +23,8 @@ func NewRedisSessionManager(client *redis.Client) *RedisSessionManager {
 	}
 }
 
-func (rsm *RedisSessionManager) GetSessionHistory(ctx context.Context, sessionID string, key string) ([]template.Message, error) {
-	historyData, err := rsm.client.HGet(ctx, sessionID, key).Result()
+func (rsm *RedisSessionManager) GetSessionHistory(ctx context.Context, sessionID string) ([]template.Message, error) {
+	historyData, err := rsm.client.HGet(ctx, sessionID, "history").Result()
 	if err == redis.Nil {
 		return []template.Message{}, nil // No history found for the session, return an empty slice of template.Message
 	} else if err != nil {
@@ -34,7 +34,7 @@ func (rsm *RedisSessionManager) GetSessionHistory(ctx context.Context, sessionID
 	// Deserialize the history data from JSON format
 	var history []template.Message
 	if err := json.Unmarshal([]byte(historyData), &history); err != nil {
-		return nil, err // Return the error if deserialization fails
+		return nil, err
 	}
 
 	return history, nil
@@ -69,21 +69,21 @@ func (rsm *RedisSessionManager) DeleteSession(ctx context.Context, pattern strin
 	return rsm.client.Del(ctx, pattern).Err()
 }
 
+// Save the session history to Redis. Key is the session ID and value is the history is the slice of template.Message
 func (rsm *RedisSessionManager) SaveSessionHistory(ctx context.Context, sessionID string, key string, history []template.Message) error {
 	historyData, err := json.Marshal(history)
 	if err != nil {
 		log.Fatal("Failed to marshal session history:", err)
 	}
-
 	return rsm.client.HSet(ctx, sessionID, key, historyData).Err()
 }
 
 func (rsm *RedisSessionManager) SaveSessionModel(ctx context.Context, sessionID string, model string) error {
-	return rsm.client.HSet(ctx, sessionID, "model", model).Err()
+	return rsm.client.HSet(ctx, sessionID, "currmodel", model).Err()
 }
 
 func (rsm *RedisSessionManager) GetSessionModel(ctx context.Context, sessionID string) (string, error) {
-	modelData, err := rsm.client.HGet(ctx, sessionID, "model").Result()
+	modelData, err := rsm.client.HGet(ctx, sessionID, "currmodel").Result()
 	if err == redis.Nil {
 		return "", nil // No model found for the session
 	} else if err != nil {

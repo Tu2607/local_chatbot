@@ -1,0 +1,57 @@
+---
+services:
+  redis:
+    image: redis:latest
+    container_name: local_chatbot-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - local_chatbot_net
+  
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: local_chatbot-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chromadb_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - local_chatbot_net
+    
+    
+  local_chatbot:
+    build: .
+    env_file: '.env'
+    ports:
+      - "55572:55572"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+      - chromadb
+    networks:
+      - local_chatbot_net
+    
+
+networks:
+  local_chatbot_net:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local
+  chromadb_data:
+    driver: local
