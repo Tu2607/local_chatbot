@@ -15,10 +15,49 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.3/dist/purify.min.js"></script>
+  <script>
+    DOMPurify.setConfig({
+      ALLOWED_TAGS: [
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'p', 'a', 'ul', 'ol',
+        'nl', 'li', 'ins', 'del', 's', 'pre', 'code', 'hr', 'br', 'div',
+        'table', 'thead', 'caption', 'tbody', 'tr', 'th', 'td', 'em',
+        'strong', 'italic', 'b', 'i', 'span', 'img', 'details', 'summary',
+        'input'
+      ],
+      ALLOWED_ATTR: [
+        'href', 'name', 'target', 'src', 'alt', 'title', 'class', 'id',
+        'type', 'checked', 'disabled', 'readonly',
+        'align', 'colspan', 'rowspan'
+      ]
+    });
+  </script>
   <meta charset="UTF-8">
   <title>Local Chatbot</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+  <!-- Development: Auto-refresh on file changes -->
+  <script>
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      let lastCheck = Date.now();
+      setInterval(async () => {
+        try {
+          const response = await fetch('/', {
+            method: 'HEAD',
+            cache: 'no-store'
+          });
+          const lastModified = new Date(response.headers.get('last-modified')).getTime();
+
+          if (lastModified > lastCheck && Date.now() - lastModified < 2000) {
+            lastCheck = Date.now();
+            setTimeout(() => location.reload(), 500);
+          }
+        } catch (e) {
+          // Ignore errors during check
+        }
+      }, 1000);
+    }
+  </script>
 </head>
 
 <body>
@@ -33,12 +72,12 @@
     <textarea id="input" placeholder="Type your message..."></textarea><br>
     <select id="model">
       <option value="gemma-3-27b-it">Gemma 3 27B IT (API)</option>
+      <option value="gemma-4-26b-a4b-it">Gemma 4 26B A4B IT (API)</option>
       <option value="gemini-2.5-flash">Gemini 2.5 Flash (API)</option>
       <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite (API)</option>
       <option value="gemini-2.5-pro">Gemini 2.5 Pro (API)</option>
       <option value="gemini-2.0-flash-preview-image-generation">Gemini 2.0 Flash Image Generation (API)</option>
-      <option value="gpt-4.1-mini">GPT-4.1 Mini (API)</option>
-      <option value="llama3.2:1b">llama3.2:1b (Ollama)</option>
+      <option value="gemma3:12b">gemma3:12b (Ollama)</option>
       <option value="gpt-oss:20b">gpt-oss:20b (Ollama)</option>
       <option value="qwen3-coder:30b">qwen3-coder:30b (Ollama)</option>
       <option value="gemma3:27b">gemma3:27b (Ollama)</option>

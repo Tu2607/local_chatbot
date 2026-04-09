@@ -1,10 +1,9 @@
-package helper
+package utility
 
 import (
 	"bytes"
 	"encoding/base64"
 	"html"
-	"log"
 	"net"
 	"strings"
 
@@ -44,12 +43,22 @@ func EncodeByteSliceToBase64(images []byte) string {
 	return base64Str
 }
 
+func IsBase64Encoded(s string) bool {
+	_, err := base64.StdEncoding.DecodeString(s)
+	return err == nil
+}
+
+func DecodeBase64ToByteSlice(s string) ([]byte, error) {
+	return base64.StdEncoding.DecodeString(s)
+}
+
 func GenerateULID() string {
 	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
 	ms := ulid.Timestamp(time.Now())
 	new_ulid, err := ulid.New(ms, entropy)
 	if err != nil {
-		log.Println("Error generating ULID:", err)
+		Logger.WithComponent("utils").Error(err, "Failed to generate ULID")
+		return ""
 	}
 
 	return new_ulid.String()
@@ -60,6 +69,14 @@ func ReverseSlice(s []string) []string {
 		s[i], s[j] = s[j], s[i]
 	}
 	return s
+}
+
+func CombineMessageAndRole(messages []template.Message) []string {
+	var combined []string
+	for _, msg := range messages {
+		combined = append(combined, msg.Role+": "+msg.Content)
+	}
+	return combined
 }
 
 // A helper function that combine multiple chat message into one big text body with new lines

@@ -3,13 +3,12 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"sync"
 
 	"local_chatbot/internal/provider"
-	"local_chatbot/server/helper"
 	"local_chatbot/server/template"
+	"local_chatbot/server/utility"
 )
 
 func ChatHandler(sessionManager *RedisSessionManager, providerRegistry *provider.Registry, contextSyncWg *sync.WaitGroup) http.HandlerFunc {
@@ -32,18 +31,19 @@ func ChatHandler(sessionManager *RedisSessionManager, providerRegistry *provider
 
 		sessionID := req.SessionID
 		if sessionID == "" {
-			log.Println("Session ID is required. Generating new one.")
-			sessionID = helper.GenerateULID()
+			utility.Logger.WithComponent("chat_handler").Info("No session ID provided in request, generating new session ID")
+			sessionID = utility.GenerateULID()
+			utility.Logger.WithComponent("chat_handler").WithSessionID(sessionID).Debug("Generated new session ID")
 		}
 
 		// If model is not provided in the request, try to fetch it from the session.
 		if req.Model == "" {
 			savedModel, err := sessionManager.GetSessionModel(ctx, sessionID)
 			if err != nil {
-				log.Printf("Error: %v", err)
+				utility.Logger.WithComponent("chat_handler").Error(err, "Error fetching session model")
 			} else {
 				req.Model = savedModel
-				log.Printf("No model provided in request, using saved model from session: %s", req.Model)
+				utility.Logger.WithComponent("chat_handler").Info("No model provided in request, using saved model from session", "model", req.Model)
 			}
 		}
 
@@ -53,23 +53,24 @@ func ChatHandler(sessionManager *RedisSessionManager, providerRegistry *provider
 			http.Error(w, "Unsupported model: "+req.Model, http.StatusBadRequest)
 			return
 		}
+		utility.Logger.WithComponent("chat_handler").WithSessionID(sessionID).Debug("Using provider for model", "model", req.Model)
 
 		// Set the selected model for the provider (if applicable)
 		if err := prov.SetModel(req.Model); err != nil {
-			log.Printf("Error setting model for provider: %v", err)
+			utility.Logger.WithComponent("chat_handler").Error(err, "Error setting model for provider")
 			http.Error(w, "Error setting model for provider", http.StatusInternalServerError)
 			return
 		}
 
 		// Save model to session
 		if err := sessionManager.SaveSessionModel(ctx, sessionID, req.Model); err != nil {
-			log.Printf("Error saving session model: %v", err)
+			utility.Logger.WithComponent("chat_handler").Error(err, "Error saving session model", "model", req.Model)
 		}
 
 		// Fetch session history
 		history, err := sessionManager.GetSessionHistory(ctx, sessionID)
 		if err != nil {
-			log.Printf("Error fetching session history: %v", err)
+			utility.Logger.WithComponent("chat_handler").Error(err, "Error fetching session history")
 			http.Error(w, "Error fetching session history", http.StatusInternalServerError)
 			return
 		}
@@ -77,7 +78,7 @@ func ChatHandler(sessionManager *RedisSessionManager, providerRegistry *provider
 		// Send message to provider
 		reply, err := prov.SendMessage(ctx, sessionID, req.Input, history, isHTML)
 		if err != nil {
-			log.Printf("Error sending message to provider: %v", err)
+			utility.Logger.WithComponent("chat_handler").Error(err, "Error sending message to provider")
 			http.Error(w, "Error processing request", http.StatusInternalServerError)
 			return
 		}
@@ -93,10 +94,10 @@ func ChatHandler(sessionManager *RedisSessionManager, providerRegistry *provider
 			defer contextSyncWg.Done()
 			compressedHistory, err := prov.CompressHistory(history)
 			if err != nil {
-				log.Printf("Error compressing session history: %v", err)
+				utility.Logger.WithComponent("chat_handler").WithSessionID(sessionID).Error(err, "Error compressing session history")
 			}
 			if err := sessionManager.SaveSessionHistory(ctx, sessionID, "history", compressedHistory); err != nil {
-				log.Printf("Error saving compressed session history: %v", err)
+				utility.Logger.WithComponent("chat_handler").WithSessionID(sessionID).Error(err, "Error saving compressed session history")
 			}
 		}()
 

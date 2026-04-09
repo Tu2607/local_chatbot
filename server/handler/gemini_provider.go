@@ -3,13 +3,12 @@ package handler
 import (
 	"context"
 	"fmt"
-	"log"
 	"slices"
 
 	"local_chatbot/internal/provider"
 	"local_chatbot/server/ai_models"
-	"local_chatbot/server/helper"
 	"local_chatbot/server/template"
+	"local_chatbot/server/utility"
 
 	"google.golang.org/genai"
 )
@@ -31,11 +30,12 @@ func NewGeminiProvider(apiKey string) (provider.Provider, error) {
 		return nil, err
 	}
 
-	log.Println("Successfully created Gemini client")
+	utility.Logger.WithComponent("gemini_provider").Info("Initialized Gemini provider with provided API key")
 	return &GeminiProvider{
 		Client: client,
 		supportedModels: []string{
 			"gemma-3-27b-it",
+			"gemma-4-26b-a4b-it",
 			"gemini-2.5-flash",
 			"gemini-2.5-pro",
 			"gemini-2.5-flash-lite",
@@ -63,7 +63,8 @@ func (gp *GeminiProvider) SetModel(model string) error {
 func (gp *GeminiProvider) CompressHistory(history []template.Message) ([]template.Message, error) {
 	// Select the oldest 10 messages to compress the history, this is a simple heuristic and can be improved with more sophisticated approaches
 	if len(history) > 10 {
-		combinedContent := helper.CombineChatMessages(history[:10])
+		utility.Logger.WithComponent("gemini_provider").Info("Compressing history using Gemini to reduce token count")
+		combinedContent := utility.CombineChatMessages(history[:10])
 		geminiHistory := []*genai.Content{
 			genai.NewContentFromText(combinedContent, genai.RoleUser),
 		}
@@ -76,7 +77,7 @@ func (gp *GeminiProvider) CompressHistory(history []template.Message) ([]templat
 		)
 
 		if err != nil {
-			log.Printf("Warning: Could not compress history: %v. Continuing with uncompressed.", err)
+			utility.Logger.WithComponent("gemini_provider").Error(err, "Failed to summarize history with Gemini, returning original history")
 			return history, nil
 		}
 
@@ -91,6 +92,7 @@ func (gp *GeminiProvider) CompressHistory(history []template.Message) ([]templat
 	}
 
 	// If the history is 10 messages or less, we can just return it as is
+	utility.Logger.WithComponent("gemini_provider").Info("History is short, no need to compress")
 	return history, nil
 }
 
@@ -105,10 +107,10 @@ func (gp *GeminiProvider) SendMessage(ctx context.Context, sessionID string, use
 	if gp.selectedModel == "gemini-2.0-flash-preview-image-generation" {
 		reply, err := ai_models.GeminiImageGeneration(userMessage, gp.Client, gp.selectedModel)
 		if err != nil {
-			log.Printf("Error generating image with Gemini: %v", err)
+			utility.Logger.WithComponent("gemini_provider").Warn("Error generating image with Gemini:", "err", err)
 			return "Failed to generate image", nil // Return a user-friendly message instead of an error
 		}
-		return helper.EncodeByteSliceToBase64(reply), nil
+		return utility.EncodeByteSliceToBase64(reply), nil
 	}
 
 	// Convert history to Gemini format
@@ -138,7 +140,7 @@ func (gp *GeminiProvider) SendMessage(ctx context.Context, sessionID string, use
 		resultText = result.Candidates[0].Content.Parts[0].Text
 	}
 
-	return helper.HtmlOrCurlResponse(isHTML, resultText), nil
+	return utility.HtmlOrCurlResponse(isHTML, resultText), nil
 }
 
 // Close closes the Gemini provider

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -13,19 +12,23 @@ import (
 	"local_chatbot/internal/app"
 	"local_chatbot/internal/config"
 	"local_chatbot/server/handler"
+	"local_chatbot/server/utility"
 )
 
 func main() {
+	// Initialize logger
+	utility.Logger = utility.InitLogger(os.Getenv("DEBUG") == "true")
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		utility.Logger.WithComponent("main").Fatal("Failed to load configuration", "error", err)
 	}
 
 	// Initialize application
 	application, err := app.New(cfg)
 	if err != nil {
-		log.Fatalf("Failed to initialize application: %v", err)
+		utility.Logger.WithComponent("main").Fatal("Failed to start application", "error", err)
 	}
 	defer application.Close()
 
@@ -40,7 +43,12 @@ func main() {
 	mux.HandleFunc("/session", handler.SessionHandler(application.SessionManager))
 
 	// Start Ollama server (optional)
-	ollamaCmd := startOllamaServer()
+	var ollamaCmd *os.Process
+	if cfg.GetOllamaHost() == "localhost" {
+		ollamaCmd = startOllamaServer()
+	} else {
+		utility.Logger.WithComponent("main").Info("Ollama host is not localhost, skipping starting local Ollama server", "ollama_host", cfg.GetOllamaHost())
+	}
 	defer stopOllamaServer(ollamaCmd)
 
 	// Create HTTP server
@@ -55,9 +63,9 @@ func main() {
 
 	// Start server in goroutine
 	go func() {
-		log.Println("Starting server on port " + cfg.Port)
+		utility.Logger.WithComponent("main").Info("Starting server", "port", cfg.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
+			utility.Logger.WithComponent("main").Fatal("Failed to start server", "error", err)
 		}
 	}()
 
@@ -65,28 +73,28 @@ func main() {
 	<-sig
 
 	// Graceful shutdown
-	log.Println("Shutting down server...")
+	utility.Logger.WithComponent("main").Info("Shutdown signal received, shutting down server...")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := application.WaitForContextSync(ctx); err != nil {
-		log.Printf("Warning: Context sync did not complete before shutdown: %v", err)
+		utility.Logger.WithComponent("main").Warn("Context sync did not complete before shutdown", "error", err)
 	}
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Error shutting down server: %v", err)
+		utility.Logger.WithComponent("main").Fatal("Error shutting down server", "error", err)
 	}
-	log.Println("Server gracefully stopped")
+	utility.Logger.WithComponent("main").Info("Server gracefully stopped")
 }
 
 // Helper function to start Ollama server
 func startOllamaServer() *os.Process {
 	ollamaCmd := exec.Command("ollama", "serve")
 	if err := ollamaCmd.Start(); err != nil {
-		log.Println("Warning: Ollama server could not be started. Ollama may not be installed or accessible in PATH.")
+		utility.Logger.WithComponent("main").Warn("Failed to start Ollama server", "error", err)
 		return nil
 	}
-	log.Println("Ollama server started")
+	utility.Logger.WithComponent("main").Info("Ollama server started")
 	return ollamaCmd.Process
 }
 
@@ -94,9 +102,9 @@ func startOllamaServer() *os.Process {
 func stopOllamaServer(process *os.Process) {
 	if process != nil {
 		if err := process.Kill(); err != nil {
-			log.Printf("Warning: Error stopping Ollama server: %v", err)
+			utility.Logger.WithComponent("main").Warn("Error stopping Ollama server", "error", err)
 		} else {
-			log.Println("Ollama server stopped")
+			utility.Logger.WithComponent("main").Info("Ollama server stopped")
 		}
 	}
 }

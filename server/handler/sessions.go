@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"local_chatbot/server/helper"
 	"local_chatbot/server/template"
+	"local_chatbot/server/utility"
 )
 
 func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
@@ -25,6 +25,7 @@ func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
 				// Handle GET requests to list all sessions ID
 				sessionsID, err := redisSessionManager.GetAllSessionsID(context.Background(), "*")
 				if err != nil {
+					utility.Logger.WithComponent("session_handler").Error(err, "Failed to get all session IDs")
 					http.Error(w, "Failed to get all sessions", http.StatusInternalServerError)
 					return
 				}
@@ -58,14 +59,6 @@ func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
 				// Return the session history
 				resp := &template.SessionContextRequest{ChatHistory: history, Model: model}
 
-				// If the request has a query parameter `format=html`, we will convert the content to HTML
-				if isHTML := r.URL.Query().Get("format") == "html"; isHTML {
-					for i, msg := range resp.ChatHistory {
-						htmlContent := helper.HtmlOrCurlResponse(isHTML, msg.Content)
-						resp.ChatHistory[i] = template.Message{Role: msg.Role, Content: htmlContent}
-					}
-				}
-
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(resp)
 			} else {
@@ -75,6 +68,7 @@ func SessionHandler(redisSessionManager *RedisSessionManager) http.HandlerFunc {
 			// Handle DELETE requests for a specific session
 			key := r.URL.Query().Get("key")
 			if key == "" {
+				utility.Logger.WithComponent("session_handler").Warn("No session key provided for DELETE request")
 				http.Error(w, "Missing session key", http.StatusBadRequest)
 				return
 			}

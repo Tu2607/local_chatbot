@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"local_chatbot/server/template"
+	"local_chatbot/server/utility"
+
 	"google.golang.org/genai"
 )
 
@@ -68,4 +71,55 @@ func GeminiImageGeneration(prompt string, client *genai.Client, selected_model s
 	}
 
 	return imageData, nil
+}
+
+func GeminiEmbedText(client *genai.Client, text string) ([]float32, error) {
+	ctx := context.Background()
+
+	// A sanitize step to check if the input text is base64 encoded, if so we decode it before sending to Gemini API for embedding generation.
+	// This is to handle the case where the input text is actually an image in base64 format,
+	// which can happen when the frontend sends an image as a base64 string for embedding generation.
+	if utility.IsBase64Encoded(text) {
+		decodedBytes, err := utility.DecodeBase64ToByteSlice(text)
+		if err != nil {
+			utility.Logger.WithComponent("gemini_embedding").Error(err, "Error decoding base64 text:", "text", text)
+			return nil, err
+		}
+		text = string(decodedBytes)
+	}
+
+	// Convert the text to Gemini format
+	var content []*genai.Content
+	content = append(content, genai.NewContentFromText(text, genai.RoleUser))
+
+	result, err := client.Models.EmbedContent(
+		ctx,
+		"gemini-embedding-2-preview",
+		content,
+		nil,
+	)
+	if err != nil {
+		utility.Logger.WithComponent("gemini_embedding").Error(err, "Error generating embedding for text:", "text", text)
+		return nil, err
+	}
+
+	if len(result.Embeddings) > 0 {
+		return result.Embeddings[0].Values, nil
+	}
+
+	return nil, fmt.Errorf("No embeddings returned from Gemini API")
+}
+
+func GeminiEmbedTextsFromHistory(client *genai.Client, history []template.Message) ([][]float32, error) {
+	var embeddedVectors [][]float32
+	// Go through each message in the history
+	for _, msg := range history {
+		embedding, err := GeminiEmbedText(client, msg.Content)
+		if err != nil {
+			utility.Logger.WithComponent("gemini_embedding_wrapper").Error(err, "Error generating embedding for message:", "message", msg.Content)
+			return nil, err
+		}
+		embeddedVectors = append(embeddedVectors, embedding)
+	}
+	return embeddedVectors, nil
 }

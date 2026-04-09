@@ -3,12 +3,12 @@ package handler
 import (
 	"context"
 	"fmt"
-	"log"
+	"slices"
 
 	"local_chatbot/internal/provider"
 	"local_chatbot/server/ai_models"
-	"local_chatbot/server/helper"
 	"local_chatbot/server/template"
+	"local_chatbot/server/utility"
 
 	"github.com/ollama/ollama/api"
 )
@@ -24,7 +24,7 @@ type OllamaProvider struct {
 func NewOllamaProvider() provider.Provider {
 	client, err := api.ClientFromEnvironment()
 	if err != nil {
-		log.Printf("Warning: Failed to connect to Ollama: %v", err)
+		utility.Logger.WithComponent("ollama_provider").Warn("Failed to connect to Ollama", "err", err)
 	}
 
 	return &OllamaProvider{
@@ -49,18 +49,49 @@ func (op *OllamaProvider) GetSupportedModels() []string {
 }
 
 func (op *OllamaProvider) SetModel(model string) error {
-	for _, m := range op.supportedModels {
-		if m == model {
-			op.selectedModel = model
-			return nil
-		}
+	if slices.Contains(op.supportedModels, model) {
+		op.selectedModel = model
+		utility.Logger.WithComponent("ollama_provider").Debug("Set to", "model", op.selectedModel)
+		return nil
 	}
 	return fmt.Errorf("model %s is not supported", model)
 }
 
 func (op *OllamaProvider) CompressHistory(history []template.Message) ([]template.Message, error) {
-	// For simplicity, we will just return the last 10 messages in the history.
-	// In a real implementation, you would want to use a more sophisticated approach to compress the history while preserving important context.
+	// Because this is local, we can afford to keep more history context at the expense of responsiveness.
+	if len(history) >= 20 {
+		combinedContext := utility.CombineChatMessages(history[:10])
+
+		ollamaHistory := []api.Message{
+			{
+				Role:    "user",
+				Content: combinedContext,
+			},
+		}
+
+		// Call Ollama to compress the history
+		summarizedContext, err := ai_models.OllamaChat(
+			ollamaHistory,
+			op.Client,
+			"Please summarize the conversation in a concise manner while preserving the key points.",
+			"llama3.2:1b", // Use a smaller model for summarization to save resources
+		)
+
+		if err != nil {
+			utility.Logger.WithComponent("ollama_provider").Error(err, "Error during Ollama summarization")
+		}
+
+		compressHistory := []template.Message{
+			{
+				Role:    "user",
+				Content: summarizedContext.Content,
+			},
+		}
+
+		compressHistory = append(compressHistory, history[10:]...)
+		return compressHistory, nil
+	}
+
 	return history, nil
 }
 
@@ -75,19 +106,21 @@ func (op *OllamaProvider) SendMessage(ctx context.Context, sessionID string, use
 		})
 	}
 
-	// Use the first supported model as default
-	model := op.supportedModels[0] // llama3.2:1b as default
+	model := op.selectedModel
 
-	// Call Ollama chat
-	updatedHistory := ai_models.OllamaChat(ollamaHistory, op.Client, userMessage, model)
-
-	// Extract the last response (which should be from the model)
-	if len(updatedHistory) == 0 {
-		return "", fmt.Errorf("no response from Ollama")
+	resp, err := ai_models.OllamaChat(ollamaHistory, op.Client, userMessage, model)
+	if err != nil {
+		utility.Logger.WithComponent("ollama_provider").Error(err, "Error during Ollama chat")
+		return "", err
 	}
 
-	lastMessage := updatedHistory[len(updatedHistory)-1]
-	return helper.HtmlOrCurlResponse(isHTML, lastMessage.Content), nil
+	// Extract the last response (which should be from the model)
+	if resp.Content == "" {
+		utility.Logger.WithComponent("ollama_provider").Warn("Received empty response from Ollama")
+		return "", fmt.Errorf("Empty response from Ollama")
+	}
+
+	return utility.HtmlOrCurlResponse(isHTML, resp.Content), nil
 }
 
 // Close closes the Ollama provider

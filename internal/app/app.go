@@ -3,12 +3,12 @@ package app
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 
 	"local_chatbot/internal/config"
 	"local_chatbot/internal/provider"
 	"local_chatbot/server/handler"
+	"local_chatbot/server/utility"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -36,7 +36,7 @@ func New(cfg *config.Config) (*App, error) {
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
-	log.Println("Successfully connected to Redis")
+	utility.Logger.WithComponent("app_init").Info("Successfully connected to Redis", "address", cfg.GetRedisAddr())
 
 	// Initialize session manager
 	sessionManager := handler.NewRedisSessionManager(redisClient)
@@ -48,19 +48,19 @@ func New(cfg *config.Config) (*App, error) {
 	if cfg.GeminiKey != "" {
 		geminiProvider, err := initGeminiProvider(cfg.GeminiKey)
 		if err != nil {
-			log.Printf("Warning: Failed to initialize Gemini provider: %v", err)
+			utility.Logger.WithComponent("app_init").Warn("Failed to initialize Gemini provider", "error", err)
 		} else {
 			registry.Register("gemini", geminiProvider)
-			log.Println("Gemini provider initialized")
+			utility.Logger.WithComponent("app_init").Info("Gemini provider initialized")
 		}
 	} else {
-		log.Println("Skipping Gemini provider initialization (no API key configured)")
+		utility.Logger.WithComponent("app_init").Info("Skipping Gemini provider initialization (no API key configured)")
 	}
 
 	// Initialize Ollama provider (always attempt, it's local)
 	ollamaProvider := initOllamaProvider()
 	registry.Register("ollama", ollamaProvider)
-	log.Println("Ollama provider initialized")
+	utility.Logger.WithComponent("app_init").Info("Ollama provider initialized")
 
 	return &App{
 		Config:           cfg,
@@ -77,13 +77,13 @@ func (a *App) Close() error {
 
 	// Close provider registry (closes all providers)
 	if err := a.ProviderRegistry.Close(); err != nil {
-		log.Printf("Error closing providers: %v", err)
+		utility.Logger.WithComponent("app_close").Error(err, "Error closing provider registry")
 		lastErr = err
 	}
 
 	// Close Redis connection
 	if err := a.RedisClient.Close(); err != nil {
-		log.Printf("Error closing Redis: %v", err)
+		utility.Logger.WithComponent("app_close").Error(err, "Error closing Redis")
 		lastErr = err
 	}
 
