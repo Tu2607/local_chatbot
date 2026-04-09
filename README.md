@@ -281,12 +281,6 @@ Contributions are welcome! This is a learning project to explore:
 
 ---
 
-## License
-
-MIT
-
----
-
 ## Troubleshooting
 
 ### Connection Issues
