@@ -1,6 +1,6 @@
 # Local Chatbot
 
-A multi-provider local AI chatbot application built in Go, supporting Gemini, OpenAI, and Ollama models. Features comprehensive logging, session management with Redis, and RAG (Retrieval-Augmented Generation) capabilities with ChromaDB for document-aware conversations.
+A multi-provider local AI chatbot application built in Go, supporting Gemini and Ollama models. Features comprehensive logging, session management with Redis, and RAG (Retrieval-Augmented Generation) capabilities with ChromaDB for document-aware conversations.
 
 ## Quick Start
 
