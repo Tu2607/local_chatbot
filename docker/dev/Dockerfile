@@ -4,7 +4,7 @@ FROM golang:1.26.1-alpine3.23
 RUN go install github.com/air-verse/air@latest
 
 # Install additional tools
-RUN apk add --no-cache curl wget ca-certificates
+RUN apk add --no-cache curl wget ca-certificates poppler-utils
 
 WORKDIR /app
 

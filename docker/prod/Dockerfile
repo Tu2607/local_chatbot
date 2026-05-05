@@ -14,7 +14,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o local_chatbot .
 # Use a minimal base image for the final container
 FROM alpine:latest AS runner
 
-RUN apk --no-cache add ca-certificates curl wget
+# Install necessary tools for running the application
+# Poppler is needed for PDF parsing, and ca-certificates for secure HTTP requests
+RUN apk --no-cache add ca-certificates curl wget poppler-utils
 
 WORKDIR /app
 

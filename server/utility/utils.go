@@ -6,6 +6,7 @@ import (
 	"html"
 	"net"
 	"strings"
+	"unicode/utf8"
 
 	"time"
 
@@ -88,6 +89,34 @@ func CombineChatMessages(messages []template.Message) string {
 		combined.WriteString("\n")
 	}
 	return combined.String()
+}
+
+func PreviousUTF8Boundary(content []byte, pos int) int {
+	if pos <= 0 {
+		return 0
+	}
+	if pos >= len(content) {
+		return len(content)
+	}
+
+	for pos > 0 && !utf8.RuneStart(content[pos]) {
+		pos--
+	}
+	return pos
+}
+
+func NextUTF8Boundary(content []byte, pos int) int {
+	if pos <= 0 {
+		return 0
+	}
+	if pos >= len(content) {
+		return len(content)
+	}
+
+	for pos < len(content) && !utf8.RuneStart(content[pos]) {
+		pos++
+	}
+	return pos
 }
 
 func CheckPort(port string) bool {
